@@ -1,14 +1,13 @@
 import streamlit as st
+import pandas as pd
 
-# Setup della pagina per Smartphone
 st.set_page_config(page_title="FantaBrain - Fantachill 5.0", layout="centered")
 
 st.title("⚽ FantaBrain - Fantachill 5.0")
 st.caption("Asta a 10 squadre | 1000 Crediti | Modificatore Difesa")
 
-# Nomi ufficiali delle squadre della lega Fantachill 5.0
 SQUADRE_LISTA = [
-    "Fc jigen",  # La tua squadra
+    "Fc jigen",
     "Red Demon",
     "CHIAVARIELLO FC",
     "La Seleção",
@@ -20,17 +19,16 @@ SQUADRE_LISTA = [
     "ARIANAPOLI"
 ]
 
-# Inizializzazione dello Stato (Session State)
+# Inizializzazione Stato
 if "squadre" not in st.session_state:
-    st.session_state.squadre = {sq: 1000 for sq in SQUADRE_LISTA}
+    st.session_state.squadre = {sq: {"crediti": 1000, "acquisti": 0} for sq in SQUADRE_LISTA}
 
 if "storico" not in st.session_state:
     st.session_state.storico = []
 
-# Target consigliati su 1000 crediti per Fantachill
 TARGET = {"POR": 90, "DIF": 150, "CEN": 280, "ATT": 480}
 
-# 1. SEZIONE ASTA IN TEMPO REALE
+# 1. SEZIONE REGISTRAZIONE ACQUISTI
 st.subheader("📝 Registra Acquisto")
 
 col1, col2 = st.columns(2)
@@ -41,38 +39,70 @@ with col2:
     nome_giocatore = st.text_input("Giocatore", placeholder="Es. Lautaro")
     prezzo = st.number_input("Prezzo (cr)", min_value=1, max_value=1000, value=1, step=1)
 
-if st.button("📌 CONFERMA ACQUISTO", use_container_width=True):
-    if nome_giocatore:
-        st.session_state.squadre[squadra_acquirente] -= prezzo
-        st.session_state.storico.insert(0, f"{nome_giocatore} ({ruolo}) ➔ {squadra_acquirente} per {prezzo} cr")
-        st.success(f"{nome_giocatore} registrato a {squadra_acquirente}!")
-    else:
-        st.warning("Inserisci il nome del giocatore!")
+col_btn1, col_btn2 = st.columns(2)
+
+with col_btn1:
+    if st.button("📌 CONFERMA ACQUISTO", use_container_width=True):
+        if nome_giocatore:
+            st.session_state.squadre[squadra_acquirente]["crediti"] -= prezzo
+            st.session_state.squadre[squadra_acquirente]["acquisti"] += 1
+            st.session_state.storico.insert(0, {
+                "giocatore": nome_giocatore,
+                "ruolo": ruolo,
+                "squadra": squadra_acquirente,
+                "prezzo": prezzo
+            })
+            st.success(f"{nome_giocatore} ➔ {squadra_acquirente} ({prezzo} cr)")
+        else:
+            st.warning("Inserisci il nome del giocatore!")
+
+with col_btn2:
+    if st.button("↩️ ANNULLA ULTIMO", use_container_width=True):
+        if st.session_state.storico:
+            ultimo = st.session_state.storico.pop(0)
+            st.session_state.squadre[ultimo["squadra"]]["crediti"] += ultimo["prezzo"]
+            st.session_state.squadre[ultimo["squadra"]]["acquisti"] -= 1
+            st.info(f"Annullato: {ultimo['giocatore']}")
 
 st.divider()
 
-# 2. METRICHE SBARRAMENTO E BUDGET
-st.subheader("📊 Stato Crediti Avversari")
+# 2. TABELLA STATO CREDITI E SBARRAMENTO
+st.subheader("📊 Stato Crediti & Sbarramento")
 
-crediti_miei = st.session_state.squadre["Fc jigen"]
-altri_crediti = [v for k, v in st.session_state.squadre.items() if k != "Fc jigen"]
+crediti_miei = st.session_state.squadre["Fc jigen"]["crediti"]
+altri_crediti = [v["crediti"] for k, v in st.session_state.squadre.items() if k != "Fc jigen"]
 max_avversario = max(altri_crediti) if altri_crediti else 0
 
 col_a, col_b = st.columns(2)
 col_a.metric("Crediti Fc jigen", f"{crediti_miei} cr")
-col_b.metric("Sbarramento Massimo", f"{max_avversario + 1} cr", help="Offerta massima per superare chiunque")
+col_b.metric("Sbarramento Massimo", f"{max_avversario + 1} cr", help="Prezzo per staccare tutti")
 
-st.write("**Crediti Rimanenti per Squadra:**")
-st.dataframe(
-    [{"Squadra": k, "Crediti Residui": v} for k, v in st.session_state.squadre.items()],
-    use_container_width=True
-)
+# Tabella avanzata
+dati_tabella = []
+for k, v in st.session_state.squadre.items():
+    slot_rimanenti = 25 - v["acquisti"]
+    pmr = round(v["crediti"] / slot_rimanenti, 1) if slot_rimanenti > 0 else 0
+    dati_tabella.append({
+        "Squadra": k,
+        "Crediti": v["crediti"],
+        "Giocatori": f"{v['acquisti']}/25",
+        "PMR (cr/slot)": pmr
+    })
 
-with st.expander("💡 Target Spesa Consigliati (Modificatore)"):
-    for r, cr in TARGET.items():
-        st.write(f"- **{r}**: ~{cr} crediti")
+st.dataframe(pd.DataFrame(dati_tabella), use_container_width=True)
 
+# 3. ULTIME CHIAMATE E EXPORT CSV
 if st.session_state.storico:
     st.subheader("📜 Ultime Chiamate")
-    for item in st.session_state.storico[:5]:
-        st.caption(item)
+    df_storico = pd.DataFrame(st.session_state.storico)
+    st.dataframe(df_storico, use_container_width=True)
+    
+    csv = df_storico.to_csv(index=False).encode('utf-8')
+    st.download_button("📥 Scarica Report Asta (CSV)", data=csv, file_name="asta_fantachill.csv", mime="text/csv")
+
+# 4. RESET ASTA (IN ESPANDER)
+with st.expander("⚙️ Gestione e Reset"):
+    if st.button("⚠️ RESETTA TUTTA L'ASTA"):
+        st.session_state.squadre = {sq: {"crediti": 1000, "acquisti": 0} for sq in SQUADRE_LISTA}
+        st.session_state.storico = []
+        st.rerun()
