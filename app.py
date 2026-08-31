@@ -17,7 +17,7 @@ LIMITI_RUOLO = {"POR": 3, "DIF": 8, "CEN": 8, "ATT": 6}
 PERCENTUALI_MAX = {"POR": 0.04, "DIF": 0.16, "CEN": 0.25, "ATT": 0.55}
 
 LOGHI_SQUADRE = {
-  LOGHI_SQUADRE = {
+
     "Atalanta": "https://a.espncdn.com/i/teamlogos/soccer/500/105.png",
     "Bologna": "https://a.espncdn.com/i/teamlogos/soccer/500/107.png",
     "Cagliari": "https://a.espncdn.com/i/teamlogos/soccer/500/2873.png",
@@ -38,7 +38,6 @@ LOGHI_SQUADRE = {
     "Udinese": "https://a.espncdn.com/i/teamlogos/soccer/500/115.png",
     "Venezia": "https://a.espncdn.com/i/teamlogos/soccer/500/2653.png",
     "Verona": "https://a.espncdn.com/i/teamlogos/soccer/500/2602.png"
-}
 }
 
 # 3. CARICAMENTO INTELLIGENTE LISTONE FANTACALCIO
