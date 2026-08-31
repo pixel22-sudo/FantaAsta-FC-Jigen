@@ -39,68 +39,56 @@ LOGHI_SQUADRE = {
     "Venezia": "https://a.espncdn.com/i/teamlogos/soccer/500/2653.png"
 }
 
-# 3. CARICAMENTO E PULIZIA SMART DEL LISTONE CSV
-st.sidebar.header("📥 Carica Listone Personalizzato")
-uploaded_file = st.sidebar.file_uploader("Carica File CSV", type=["csv"])
+# 3. CARICAMENTO FLESSIBILE (EXCEL .xlsx E CSV)
+st.sidebar.header("📥 Carica Listone Fantacalcio")
+uploaded_file = st.sidebar.file_uploader("Carica File Excel (.xlsx) o CSV", type=["xlsx", "xls", "csv"])
 
 if uploaded_file is not None:
     try:
-        df_raw = pd.read_csv(uploaded_file, sep=None, engine='python')
-    except Exception:
-        df_raw = pd.read_csv(uploaded_file)
+        # Controllo estensione ed estrazione dati
+        if uploaded_file.name.endswith(('.xlsx', '.xls')):
+            # Gestione file Excel ufficiali Fantacalcio.it
+            df_raw = pd.read_excel(uploaded_file, header=1) if "Quotazioni" in uploaded_file.name else pd.read_excel(uploaded_file)
+            if 'R' not in df_raw.columns and 'Nome' not in df_raw.columns:
+                uploaded_file.seek(0)
+                df_raw = pd.read_excel(uploaded_file)
+        else:
+            try:
+                df_raw = pd.read_csv(uploaded_file, sep=None, engine='python')
+            except Exception:
+                df_raw = pd.read_csv(uploaded_file)
 
-    # Pulizia nomi colonne
-    df_raw.columns = df_raw.columns.astype(str).str.strip()
+        df_raw.columns = df_raw.columns.astype(str).str.strip()
 
-    col_map = {}
-    for col in df_raw.columns:
-        c_low = col.lower()
-        if c_low in ['nome', 'calciatore', 'giocatore', 'giocatori', 'player']:
-            col_map[col] = 'Nome'
-        elif c_low in ['ruolo', 'r', 'r.', 'role']:
-            col_map[col] = 'Ruolo'
-        elif c_low in ['squadra', 'club', 'sq', 'squadre', 'team']:
-            col_map[col] = 'Squadra'
+        col_map = {}
+        for col in df_raw.columns:
+            c_low = col.lower()
+            if c_low in ['nome', 'calciatore', 'giocatore', 'giocatori', 'player']:
+                col_map[col] = 'Nome'
+            elif c_low in ['ruolo', 'r', 'r.', 'role']:
+                col_map[col] = 'Ruolo'
+            elif c_low in ['squadra', 'club', 'sq', 'squadre', 'team']:
+                col_map[col] = 'Squadra'
 
-    df_listone = df_raw.rename(columns=col_map)
+        df_listone = df_raw.rename(columns=col_map)
 
-    # Mappatura e pulizia ruoli
-    if 'Ruolo' in df_listone.columns:
-        m_ruoli = {'P': 'POR', 'D': 'DIF', 'C': 'CEN', 'A': 'ATT'}
-        df_listone['Ruolo'] = df_listone['Ruolo'].astype(str).str.upper().str.strip()
-        df_listone['Ruolo'] = df_listone['Ruolo'].replace(m_ruoli)
-    else:
-        st.error("⚠️ Impossibile trovare la colonna del Ruolo nel CSV.")
+        # Mappatura e pulizia dei ruoli
+        if 'Ruolo' in df_listone.columns:
+            m_ruoli = {'P': 'POR', 'D': 'DIF', 'C': 'CEN', 'A': 'ATT'}
+            df_listone['Ruolo'] = df_listone['Ruolo'].astype(str).str.upper().str.strip()
+            df_listone['Ruolo'] = df_listone['Ruolo'].replace(m_ruoli)
 
-    if 'Nome' not in df_listone.columns:
-        st.error("⚠️ Impossibile trovare la colonna del Nome nel CSV.")
-    if 'Squadra' not in df_listone.columns:
-        df_listone['Squadra'] = "Sconosciuta"
-
+    except Exception as e:
+        st.error(f"Errore nella lettura del file: {e}")
+        df_listone = pd.DataFrame()
 else:
     # Listone di riserva integrato
     data_listone = [
         {"Nome": "Maignan", "Ruolo": "POR", "Squadra": "Milan"},
         {"Nome": "Sommer", "Ruolo": "POR", "Squadra": "Inter"},
-        {"Nome": "Svilar", "Ruolo": "POR", "Squadra": "Roma"},
-        {"Nome": "Meret", "Ruolo": "POR", "Squadra": "Napoli"},
-        {"Nome": "Di Gregorio", "Ruolo": "POR", "Squadra": "Juventus"},
-        {"Nome": "Carnesecchi", "Ruolo": "POR", "Squadra": "Atalanta"},
         {"Nome": "Dimarco", "Ruolo": "DIF", "Squadra": "Inter"},
-        {"Nome": "Bremer", "Ruolo": "DIF", "Squadra": "Juventus"},
-        {"Nome": "Bastoni", "Ruolo": "DIF", "Squadra": "Inter"},
-        {"Nome": "Di Lorenzo", "Ruolo": "DIF", "Squadra": "Napoli"},
-        {"Nome": "Theo Hernandez", "Ruolo": "DIF", "Squadra": "Milan"},
         {"Nome": "Calhanoglu", "Ruolo": "CEN", "Squadra": "Inter"},
-        {"Nome": "Pulisic", "Ruolo": "CEN", "Squadra": "Milan"},
-        {"Nome": "McTominay", "Ruolo": "CEN", "Squadra": "Napoli"},
-        {"Nome": "Nico Paz", "Ruolo": "CEN", "Squadra": "Como"},
-        {"Nome": "Orsolini", "Ruolo": "CEN", "Squadra": "Bologna"},
-        {"Nome": "Lautaro Martinez", "Ruolo": "ATT", "Squadra": "Inter"},
-        {"Nome": "Thuram", "Ruolo": "ATT", "Squadra": "Inter"},
-        {"Nome": "Vlahovic", "Ruolo": "ATT", "Squadra": "Juventus"},
-        {"Nome": "Lukaku", "Ruolo": "ATT", "Squadra": "Napoli"},
-        {"Nome": "Retegui", "Ruolo": "ATT", "Squadra": "Atalanta"}
+        {"Nome": "Lautaro Martinez", "Ruolo": "ATT", "Squadra": "Inter"}
     ]
     df_listone = pd.DataFrame(data_listone)
 
@@ -127,7 +115,7 @@ with col2:
 # Filtro dinamico per ruolo e presenza nel listone
 if 'Ruolo' in df_listone.columns and 'Nome' in df_listone.columns:
     df_filtrato = df_listone[(df_listone["Ruolo"] == ruolo_acq) & (~df_listone["Nome"].astype(str).str.lower().isin(presi_nomi))]
-    opzioni_giocatori = sorted(df_filtrato["Nome"].astype(str).tolist())
+    opzioni_giocatori = sorted(df_filtrato["Nome"].astype(str).unique().tolist())
 else:
     opzioni_giocatori = []
 
@@ -143,7 +131,7 @@ with col4:
 crediti_jigen = st.session_state.squadre["Fc jigen"]["crediti"]
 max_spesa = int(crediti_jigen * PERCENTUALI_MAX[ruolo_acq])
 
-if nome_giocatore:
+if nome_giocatore and 'Squadra' in df_listone.columns:
     match_sq = df_listone[df_listone["Nome"] == nome_giocatore]["Squadra"].values
     sq_club = match_sq[0] if len(match_sq) > 0 else ""
     logo_url = LOGHI_SQUADRE.get(sq_club, "")
