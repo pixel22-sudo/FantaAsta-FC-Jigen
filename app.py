@@ -16,6 +16,7 @@ LIMITI_RUOLO = {"POR": 3, "DIF": 8, "CEN": 8, "ATT": 6}
 # PERCENTUALI SPESA MAX CONSIGLIATA
 PERCENTUALI_MAX = {"POR": 0.04, "DIF": 0.16, "CEN": 0.25, "ATT": 0.55}
 
+# LOGHI SQUADRE SERIE A (URL Diretti CDN)
 LOGHI_SQUADRE = {
     "Inter": "https://a.espncdn.com/i/teamlogos/soccer/500/110.png",
     "Milan": "https://a.espncdn.com/i/teamlogos/soccer/500/103.png",
@@ -26,23 +27,29 @@ LOGHI_SQUADRE = {
     "Atalanta": "https://a.espncdn.com/i/teamlogos/soccer/500/105.png",
     "Fiorentina": "https://a.espncdn.com/i/teamlogos/soccer/500/109.png",
     "Torino": "https://a.espncdn.com/i/teamlogos/soccer/500/239.png",
-    "Como": "https://a.espncdn.com/i/teamlogos/soccer/500/2157.png"
+    "Bologna": "https://a.espncdn.com/i/teamlogos/soccer/500/107.png",
+    "Como": "https://a.espncdn.com/i/teamlogos/soccer/500/2157.png",
+    "Udinese": "https://a.espncdn.com/i/teamlogos/soccer/500/115.png"
 }
 
-DATABASE_GIOCATORI = {
-    "Maignan": "Milan", "Sommer": "Inter", "Svilar": "Roma", "Meret": "Napoli", "Di Gregorio": "Juventus", "Carnesecchi": "Atalanta",
-    "Dimarco": "Inter", "Bremer": "Juventus", "Bastoni": "Inter", "Di Lorenzo": "Napoli", "Akanji": "Inter", "Solet": "Udinese",
-    "Calhanoglu": "Inter", "Pulisic": "Milan", "McTominay": "Napoli", "Nico Paz": "Como", "Orsolini": "Bologna", "Frattesi": "Inter",
-    "Lautaro Martinez": "Inter", "Yildiz": "Juventus", "Hojlund": "Napoli", "Malen": "Roma", "Ramos G.": "Milan", "Kolo Muani": "Juventus"
-}
-
-LISTA_GIOCATORI_COMPLETA = sorted(list(DATABASE_GIOCATORI.keys()))
-
-TARGET_GIOCATORI = {
-    "POR": ["Maignan", "Meret", "Svilar", "Sommer", "Carnesecchi", "Di Gregorio"],
-    "DIF": ["Dimarco", "Bremer", "Akanji", "Bastoni", "Di Lorenzo", "Solet"],
-    "CEN": ["Calhanoglu", "McTominay", "Pulisic", "Nico Paz", "Orsolini", "Frattesi"],
-    "ATT": ["Lautaro Martinez", "Yildiz", "Hojlund", "Malen", "Ramos G.", "Kolo Muani"]
+# DATABASE COMPLETO DIVISO PER RUOLO E SQUADRA
+DATABASE = {
+    "POR": {
+        "Maignan": "Milan", "Sommer": "Inter", "Svilar": "Roma", 
+        "Meret": "Napoli", "Di Gregorio": "Juventus", "Carnesecchi": "Atalanta"
+    },
+    "DIF": {
+        "Dimarco": "Inter", "Bremer": "Juventus", "Bastoni": "Inter", 
+        "Di Lorenzo": "Napoli", "Akanji": "Inter", "Solet": "Udinese"
+    },
+    "CEN": {
+        "Calhanoglu": "Inter", "Pulisic": "Milan", "McTominay": "Napoli", 
+        "Nico Paz": "Como", "Orsolini": "Bologna", "Frattesi": "Inter"
+    },
+    "ATT": {
+        "Lautaro Martinez": "Inter", "Yildiz": "Juventus", "Hojlund": "Napoli", 
+        "Malen": "Roma", "Ramos G.": "Milan", "Kolo Muani": "Juventus"
+    }
 }
 
 if "squadre" not in st.session_state:
@@ -53,31 +60,45 @@ if "squadre" not in st.session_state:
 if "storico" not in st.session_state:
     st.session_state.storico = []
 
+# Nomi di tutti i giocatori già acquistati
+presi_nomi = [item["Giocatore"].lower() for item in st.session_state.storico]
+
 st.subheader("📝 Registra Chiamata e Acquisto")
 
-col1, col2, col3, col4 = st.columns([2, 1, 2, 1])
+col1, col2 = st.columns([1, 1])
 with col1:
     squadra_acq = st.selectbox("Squadra Acquirente", list(st.session_state.squadre.keys()))
 with col2:
-    ruolo_acq = st.selectbox("Ruolo Chiamato", ["ATT", "CEN", "DIF", "POR"])
+    ruolo_acq = st.selectbox("Ruolo Chiamato", ["POR", "DIF", "CEN", "ATT"])
+
+# FILTRAGGIO DINAMICO GIOCATORI LIBERI PER IL RUOLO SELEZIONATO
+diz_ruolo = DATABASE[ruolo_acq]
+giocatori_disponibili = [g for g in diz_ruolo.keys() if g.lower() not in presi_nomi]
+
+col3, col4 = st.columns([2, 1])
 with col3:
-    nome_giocatore = st.selectbox("Giocatore Chiamato", options=[""] + LISTA_GIOCATORI_COMPLETA)
+    nome_giocatore = st.selectbox(
+        f"Giocatore {ruolo_acq} Disponibile ({len(giocatori_disponibili)} rimasti)", 
+        options=[""] + giocatori_disponibili
+    )
 with col4:
     prezzo_acq = st.number_input("Prezzo Finale (cr)", min_value=1, max_value=1000, value=1, step=1)
 
-# SUGGERITORE CON LOGHI E BUDGET REPARTO
-presi_nomi = [item["Giocatore"].lower() for item in st.session_state.storico]
-liberi_ruolo = [g for g in TARGET_GIOCATORI[ruolo_acq] if not any(g.lower() in p for p in presi_nomi)]
+# VISUALIZZAZIONE LOGO SQUADRA E INFO COPILOTA
 crediti_jigen = st.session_state.squadre["Fc jigen"]["crediti"]
 max_spesa = int(crediti_jigen * PERCENTUALI_MAX[ruolo_acq])
 
-if nome_giocatore and nome_giocatore in DATABASE_GIOCATORI:
-    sq_club = DATABASE_GIOCATORI[nome_giocatore]
+if nome_giocatore:
+    sq_club = diz_ruolo.get(nome_giocatore, "")
     logo_url = LOGHI_SQUADRE.get(sq_club, "")
-    if logo_url:
-        st.image(logo_url, width=40)
+    col_img, col_txt = st.columns([1, 10])
+    with col_img:
+        if logo_url:
+            st.image(logo_url, width=45)
+    with col_txt:
+        st.markdown(f"**Squadra Serie A:** {sq_club}")
 
-st.info(f"💡 **Copilota {ruolo_acq} (Budget Reparto: {int(1000*PERCENTUALI_MAX[ruolo_acq])} cr):** Max consigliato per un top slot: **{max_spesa} cr** | **Migliori liberi:** {', '.join(liberi_ruolo[:3]) if liberi_ruolo else 'Tutti i target presi'}")
+st.info(f"💡 **Copilota {ruolo_acq}:** Budget Reparto consigliato ~{int(1000*PERCENTUALI_MAX[ruolo_acq])} cr | Max consigliato per questo slot: **{max_spesa} cr**")
 
 col_b1, col_b2 = st.columns(2)
 with col_b1:
@@ -93,7 +114,7 @@ with col_b1:
                 st.session_state.storico.insert(0, {
                     "Giocatore": nome_giocatore, "Ruolo": ruolo_acq, "Squadra": squadra_acq, "Prezzo": prezzo_acq
                 })
-                st.success(f"✅ Registrato: {nome_giocatore} ➔ {squadra_acq} per {prezzo_acq} cr")
+                st.rerun()
         else:
             st.warning("Seleziona un giocatore!")
 
@@ -105,11 +126,11 @@ with col_b2:
             sq_data["crediti"] += ultimo["Prezzo"]
             sq_data[ultimo["Ruolo"]] -= 1
             sq_data["totale"] -= 1
-            st.info(f"Annullato: {ultimo['Giocatore']}")
+            st.rerun()
 
 st.divider()
 
-st.subheader("📊 Analisi Sbarramento & Crediti Fc jigen")
+st.subheader("📊 Analisi Crediti & Sbarramento Fc jigen")
 altri_crediti = [v["crediti"] for k, v in st.session_state.squadre.items() if k != "Fc jigen"]
 max_avversario = max(altri_crediti) if altri_crediti else 0
 
@@ -131,24 +152,27 @@ for k, v in st.session_state.squadre.items():
 st.dataframe(pd.DataFrame(dati_tabella), use_container_width=True, hide_index=True)
 
 st.divider()
-st.subheader("🎯 Target Rimanenti con Loghi")
+st.subheader("🎯 Target Rimanenti per Reparto (con Loghi)")
 cols_t = st.columns(4)
 titoli_cat = {"POR": "🧤 PORTIERI", "DIF": "🛡️ DIFENSORI", "CEN": "⚙️ CENTROCAMPISTI", "ATT": "⚽ ATTACCANTI"}
-for idx, (r_code, lista_giocatori) in enumerate(TARGET_GIOCATORI.items()):
-    with cols_t[idx % 4]:
+
+for idx, (r_code, lista_g) in enumerate(DATABASE.items()):
+    with cols_t[idx]:
         st.write(f"**{titoli_cat[r_code]}**")
-        for g in lista_giocatori:
-            club = DATABASE_GIOCATORI.get(g, "")
-            logo = LOGHI_SQUADRE.get(club, "")
-            if any(g.lower() in p for p in presi_nomi):
-                st.caption(f"~~{g}~~ ❌ *(Preso)*")
+        for g_nome, sq_club in lista_g.items():
+            logo_url = LOGHI_SQUADRE.get(sq_club, "")
+            if g_nome.lower() in presi_nomi:
+                st.caption(f"~~{g_nome}~~ ❌ *(Preso)*")
             else:
-                st.markdown(f"🟢 **{g}** `[{club}]`")
+                col_l, col_n = st.columns([1, 4])
+                with col_l:
+                    if logo_url:
+                        st.image(logo_url, width=22)
+                with col_n:
+                    st.markdown(f"**{g_nome}**")
 
 if st.session_state.storico:
     st.divider()
     st.subheader("📜 Storico Acquisti Completo")
     df_storico = pd.DataFrame(st.session_state.storico)
     st.dataframe(df_storico, use_container_width=True, hide_index=True)
-    csv = df_storico.to_csv(index=False).encode('utf-8')
-    st.download_button("📥 Scarica Report (CSV)", data=csv, file_name="asta_fantachill.csv", mime="text/csv")
