@@ -17,26 +17,28 @@ LIMITI_RUOLO = {"POR": 3, "DIF": 8, "CEN": 8, "ATT": 6}
 PERCENTUALI_MAX = {"POR": 0.04, "DIF": 0.16, "CEN": 0.25, "ATT": 0.55}
 
 LOGHI_SQUADRE = {
-    "Inter": "https://a.espncdn.com/i/teamlogos/soccer/500/110.png",
-    "Milan": "https://a.espncdn.com/i/teamlogos/soccer/500/103.png",
-    "Juventus": "https://a.espncdn.com/i/teamlogos/soccer/500/111.png",
-    "Napoli": "https://a.espncdn.com/i/teamlogos/soccer/500/114.png",
-    "Roma": "https://a.espncdn.com/i/teamlogos/soccer/500/104.png",
-    "Lazio": "https://a.espncdn.com/i/teamlogos/soccer/500/112.png",
+  LOGHI_SQUADRE = {
     "Atalanta": "https://a.espncdn.com/i/teamlogos/soccer/500/105.png",
-    "Fiorentina": "https://a.espncdn.com/i/teamlogos/soccer/500/109.png",
-    "Torino": "https://a.espncdn.com/i/teamlogos/soccer/500/239.png",
     "Bologna": "https://a.espncdn.com/i/teamlogos/soccer/500/107.png",
-    "Como": "https://a.espncdn.com/i/teamlogos/soccer/500/2157.png",
-    "Udinese": "https://a.espncdn.com/i/teamlogos/soccer/500/115.png",
-    "Genoa": "https://a.espncdn.com/i/teamlogos/soccer/500/3263.png",
-    "Verona": "https://a.espncdn.com/i/teamlogos/soccer/500/2602.png",
     "Cagliari": "https://a.espncdn.com/i/teamlogos/soccer/500/2873.png",
-    "Lecce": "https://a.espncdn.com/i/teamlogos/soccer/500/3445.png",
+    "Como": "https://a.espncdn.com/i/teamlogos/soccer/500/2157.png",
     "Empoli": "https://a.espncdn.com/i/teamlogos/soccer/500/1243.png",
+    "Fiorentina": "https://a.espncdn.com/i/teamlogos/soccer/500/109.png",
+    "Genoa": "https://a.espncdn.com/i/teamlogos/soccer/500/3263.png",
+    "Inter": "https://a.espncdn.com/i/teamlogos/soccer/500/110.png",
+    "Juventus": "https://a.espncdn.com/i/teamlogos/soccer/500/111.png",
+    "Lazio": "https://a.espncdn.com/i/teamlogos/soccer/500/112.png",
+    "Lecce": "https://a.espncdn.com/i/teamlogos/soccer/500/3445.png",
+    "Milan": "https://a.espncdn.com/i/teamlogos/soccer/500/103.png",
     "Monza": "https://a.espncdn.com/i/teamlogos/soccer/500/11041.png",
+    "Napoli": "https://a.espncdn.com/i/teamlogos/soccer/500/114.png",
     "Parma": "https://a.espncdn.com/i/teamlogos/soccer/500/113.png",
-    "Venezia": "https://a.espncdn.com/i/teamlogos/soccer/500/2653.png"
+    "Roma": "https://a.espncdn.com/i/teamlogos/soccer/500/104.png",
+    "Torino": "https://a.espncdn.com/i/teamlogos/soccer/500/239.png",
+    "Udinese": "https://a.espncdn.com/i/teamlogos/soccer/500/115.png",
+    "Venezia": "https://a.espncdn.com/i/teamlogos/soccer/500/2653.png",
+    "Verona": "https://a.espncdn.com/i/teamlogos/soccer/500/2602.png"
+}
 }
 
 # 3. CARICAMENTO INTELLIGENTE LISTONE FANTACALCIO
