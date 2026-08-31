@@ -1,118 +1,137 @@
-import os
-import tkinter as tk
-from tkinter import ttk, messagebox
+import streamlit as st
+import pandas as pd
 
-# 1. CARICAMENTO LISTA GIOCATORI DA FILE TXT ESTERNO
-def carica_giocatori():
-    percorso_file = os.path.expanduser("~/Desktop/giocatori.txt")
-    if os.path.exists(percorso_file):
-        with open(percorso_file, "r", encoding="utf-8") as f:
-            linee = [riga.strip() for riga in f.readlines() if riga.strip()]
-            return sorted(list(set(linee)))
-    else:
-        # Lista di riserva se il file non è presente
-        return sorted([
-            "Maignan", "Sommer", "Svilar", "Di Gregorio", "Meret", "Provedel",
-            "Dimarco", "Bremer", "Bastoni", "Di Lorenzo", "Akanji", "Ndicka",
-            "Calhanoglu", "Pulisic", "McTominay", "Barella", "Nico Paz", "Orsolini",
-            "Lautaro Martinez", "Thuram M.", "Yildiz", "Hojlund", "Malen", "Dovbyk"
-        ])
+st.set_page_config(page_title="FantaBrain 5.0 - Copilota Asta", layout="wide", initial_sidebar_state="collapsed")
 
-LISTA_GIOCATORI = carica_giocatori()
+st.title("⚽ FantaBrain 5.0 - Copilota Automatizzato")
+st.caption("Asta 10 Squadre | 1000 Crediti | Modificatore Difesa")
 
-class FantaAstaApp:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("FantaAsta 2026/2027 - Live Manager Offline")
-        self.root.geometry("620x680")
+SQUADRE_LISTA = [
+    "Fc jigen", "Red Demon", "CHIAVARIELLO FC", "La Seleção", "LAS Capocchias",
+    "VERO TONY VERO SOSA", "Joga Benito", "vale lambo", "Los zuccherinhos", "ARIANAPOLI"
+]
 
-        self.budget_iniziale = 1000
-        self.crediti_rimasti = 1000
-        self.storico_acquisti = []
+LIMITI_RUOLO = {"POR": 3, "DIF": 8, "CEN": 8, "ATT": 6}
 
-        # --- GRAPHICAL INTERFACE ---
-        self.lbl_crediti = tk.Label(
-            root, 
-            text=f"Crediti Fc jigen: {self.crediti_rimasti} / {self.budget_iniziale}", 
-            font=("Arial", 16, "bold"), 
-            fg="#1e7e34"
-        )
-        self.lbl_crediti.pack(pady=10)
+# LISTA GIOCATORI COMPLETA
+LISTA_GIOCATORI_COMPLETA = sorted([
+    "Akanji", "Alajbegovic", "Ahanor", "Atta", "Audero", "Baldanzi", "Barella", "Bastoni", "Baturina", 
+    "Bellanova", "Belahyane", "Bernabé", "Beukema", "Bijlow", "Bisseck", "Boga", "Bonny", "Brescianini", 
+    "Bremer", "Butez", "Cacciamani", "Calhanoglu", "Cambiaso", "Camarda", "Carnesecchi", "Casadei", 
+    "Castellanos", "Celik", "Chalobah", "Chukwueze", "Colpani", "Conceicao", "Cristante", "Da Cunha", 
+    "Davis", "De Bruyne", "De Gea", "De Ketelaere", "Di Gregorio", "Di Lorenzo", "Dimarco", "Dodo", 
+    "Doekhi", "Dovbyk", "Dragusin", "Dumfries", "Dybala", "Ederson", "Elmas", "Esposito P.", "Fabbian", 
+    "Fagioli", "Falcone", "Fazzini", "Frattesi", "Frendrup", "Gabbia", "Gatti", "Geubbels", "Gila", 
+    "Gudmundsson", "Guendouzi", "Gütierrez", "Hermoso", "Hojlund", "Ilic", "Isaksen", "Jashari", 
+    "Jones", "Kalulu", "Kean", "Kempf", "Kolo Muani", "Koopmeiners", "Kostic", "Krstovic", "Lobotka", 
+    "Locatelli", "Loftus-Cheek", "Luperto", "Maignan", "Malen", "Mancini", "Mandragora", "Martínez J.", 
+    "Mascardi", "Mastantuono", "McKennie", "McTominay", "Meret", "Milla", "Mina", "Miretti", "Modric", 
+    "Mora", "Moreira", "Motta", "Musah", "Ndicka", "Neres", "Nico Paz", "Nkunku", "Ostigard", 
+    "Orsolini", "Pavard", "Pellegrini", "Perrone", "Piccoli", "Pinamonti", "Politano", "Provedel", 
+    "Pulisic", "Rabiot", "Ramos G.", "Raspadori", "Rensch", "Retegui", "Renzetti", "Romagnoli", 
+    "Rrahmani", "Rovella", "Saelemaekers", "Samardzic", "Scalvini", "Scamacca", "Schmid", "Solet", 
+    "Sommer", "Soulé", "Spence", "Spinazzola", "Stankovic", "Stones", "Strefezza", "Svilar", 
+    "Sucic", "Taylor", "Terracciano", "Thuram K.", "Thuram M.", "Valdepeñas", "Vicario", "Vlahovic", 
+    "Wesley", "Yildiz", "Zaccagni", "Zalewski", "Zaniolo", "Zapata", "Zielinski", "Zortea"
+])
 
-        # Frame Inserimento
-        frame_input = tk.LabelFrame(root, text=" Registra Acquisto Completo ", font=("Arial", 11, "bold"), padx=10, pady=10)
-        frame_input.pack(fill="x", padx=15, pady=5)
+TARGET_GIOCATORI = {
+    "🧤 PORTIERI": ["Maignan", "Martínez J.", "Meret", "Svilar", "Carnesecchi", "Vicario"],
+    "🛡️ DIFENSORI": ["Dimarco", "Bremer", "Wesley", "Akanji", "Solet", "Mancini", "Di Lorenzo", "Ostigard"],
+    "⚙️ CENTROCAMPISTI": ["Calhanoglu", "McTominay", "Nico Paz", "Orsolini", "Pulisic", "Frattesi", "Atta"],
+    "⚽ ATTACCANTI": ["Lautaro Martinez", "Malen", "Ramos G.", "Hojlund", "Yildiz", "Dovbyk", "Davis", "Kolo Muani"]
+}
 
-        # Autocompletamento Giocatore
-        tk.Label(frame_input, text="Giocatore:").grid(row=0, column=0, sticky="w", pady=5)
-        self.combo_giocatore = ttk.Combobox(frame_input, values=LISTA_GIOCATORI, font=("Arial", 11), width=28)
-        self.combo_giocatore.grid(row=0, column=1, pady=5, padx=5)
-        self.combo_giocatore.bind("<KeyRelease>", self.filtra_giocatori)
+if "squadre" not in st.session_state:
+    st.session_state.squadre = {
+        sq: {"crediti": 1000, "POR": 0, "DIF": 0, "CEN": 0, "ATT": 0, "totale": 0} for sq in SQUADRE_LISTA
+    }
 
-        # Prezzo d'acquisto
-        tk.Label(frame_input, text="Prezzo (cr):").grid(row=1, column=0, sticky="w", pady=5)
-        self.ent_prezzo = tk.Entry(frame_input, font=("Arial", 11), width=10)
-        self.ent_prezzo.grid(row=1, column=1, sticky="w", pady=5, padx=5)
+if "storico" not in st.session_state:
+    st.session_state.storico = []
 
-        # Pulsanti Azione
-        btn_conferma = tk.Button(
-            frame_input, text="📌 CONFERMA ACQUISTO", bg="#28a745", fg="white", 
-            font=("Arial", 10, "bold"), command=self.registra_acquisto
-        )
-        btn_conferma.grid(row=2, column=0, columnspan=2, pady=10, sticky="we")
+st.subheader("📝 Registra Acquisto in Tempo Reale")
 
-        # Indicatore Sbarramento / PMR
-        self.lbl_sbarramento = tk.Label(root, text="Prezzo Medio Rimanente (25 slot): 40 cr/slot", font=("Arial", 11, "italic"), fg="#0056b3")
-        self.lbl_sbarramento.pack(pady=5)
+col1, col2, col3, col4 = st.columns([2, 1, 2, 1])
+with col1:
+    squadra_acq = st.selectbox("Squadra Acquirente", list(st.session_state.squadre.keys()))
+with col2:
+    ruolo_acq = st.selectbox("Ruolo", ["ATT", "CEN", "DIF", "POR"])
+with col3:
+    nome_giocatore = st.selectbox("Giocatore", options=[""] + LISTA_GIOCATORI_COMPLETA)
+with col4:
+    prezzo_acq = st.number_input("Prezzo (cr)", min_value=1, max_value=1000, value=1, step=1)
 
-        # Storico Acquisti
-        frame_storico = tk.LabelFrame(root, text=" Rosa Fc jigen (Acquistati) ", font=("Arial", 11, "bold"), padx=10, pady=10)
-        frame_storico.pack(fill="both", expand=True, padx=15, pady=10)
-
-        self.listbox_storico = tk.Listbox(frame_storico, font=("Courier", 10))
-        self.listbox_storico.pack(fill="both", expand=True)
-
-    def filtra_giocatori(self, event):
-        testo = self.combo_giocatore.get().lower()
-        if not testo:
-            self.combo_giocatore['values'] = LISTA_GIOCATORI
+col_b1, col_b2 = st.columns(2)
+with col_b1:
+    if st.button("📌 CONFERMA ACQUISTO", use_container_width=True):
+        if nome_giocatore:
+            sq_data = st.session_state.squadre[squadra_acq]
+            if sq_data[ruolo_acq] >= LIMITI_RUOLO[ruolo_acq]:
+                st.error(f"⚠️ {squadra_acq} ha già completato il reparto {ruolo_acq}!")
+            else:
+                sq_data["crediti"] -= prezzo_acq
+                sq_data[ruolo_acq] += 1
+                sq_data["totale"] += 1
+                st.session_state.storico.insert(0, {
+                    "Giocatore": nome_giocatore, "Ruolo": ruolo_acq, "Squadra": squadra_acq, "Prezzo": prezzo_acq
+                })
+                st.success(f"✅ Registrato: {nome_giocatore} ➔ {squadra_acq} per {prezzo_acq} cr")
         else:
-            filtrati = [g for g in LISTA_GIOCATORI if testo in g.lower()]
-            self.combo_giocatore['values'] = filtrati
+            st.warning("Seleziona un giocatore!")
 
-    def registra_acquisto(self):
-        nome = self.combo_giocatore.get().strip()
-        prezzo_str = self.ent_prezzo.get().strip()
+with col_b2:
+    if st.button("↩️ ANNULLA ULTIMO", use_container_width=True):
+        if st.session_state.storico:
+            ultimo = st.session_state.storico.pop(0)
+            sq_data = st.session_state.squadre[ultimo["Squadra"]]
+            sq_data["crediti"] += ultimo["Prezzo"]
+            sq_data[ultimo["Ruolo"]] -= 1
+            sq_data["totale"] -= 1
+            st.info(f"Annullato: {ultimo['Giocatore']}")
 
-        if not nome or not prezzo_str.isdigit():
-            messagebox.showerror("Errore Input", "Inserisci un nome valido e un prezzo numerico.")
-            return
+st.divider()
 
-        prezzo = int(prezzo_str)
+st.subheader("📊 Analisi Sbarramento & Crediti Fc jigen")
+crediti_miei = st.session_state.squadre["Fc jigen"]["crediti"]
+altri_crediti = [v["crediti"] for k, v in st.session_state.squadre.items() if k != "Fc jigen"]
+max_avversario = max(altri_crediti) if altri_crediti else 0
 
-        if prezzo > self.crediti_rimasti:
-            messagebox.showwarning("Budget Superato", "Non hai abbastanza crediti per completare l'operazione!")
-            return
+m1, m2, m3 = st.columns(3)
+m1.metric("Fc jigen Crediti", f"{crediti_miei} cr")
+m2.metric("Sbarramento Assoluto", f"{max_avversario + 1} cr")
+m3.metric("Slot Rimanenti Fc jigen", f"{25 - st.session_state.squadre['Fc jigen']['totale']} / 25")
 
-        self.crediti_rimasti -= prezzo
-        self.storico_acquisti.append((nome, prezzo))
+st.subheader("📋 Quadro Avversari & Prezzo Medio Rimanente (PMR)")
+dati_tabella = []
+for k, v in st.session_state.squadre.items():
+    slot_rim = 25 - v["totale"]
+    pmr = round(v["crediti"] / slot_rim, 1) if slot_rim > 0 else 0
+    dati_tabella.append({
+        "Squadra": k, "Crediti": v["crediti"], "PMR": pmr, "Rosa": f"{v['totale']}/25",
+        "POR": f"{v['POR']}/3", "DIF": f"{v['DIF']}/8", "CEN": f"{v['CEN']}/8", "ATT": f"{v['ATT']}/6"
+    })
 
-        # Aggiornamento UI
-        self.lbl_crediti.config(text=f"Crediti Fc jigen: {self.crediti_rimasti} / {self.budget_iniziale}")
-        self.listbox_storico.insert(tk.END, f"{nome:<28} - {prezzo} cr")
+st.dataframe(pd.DataFrame(dati_tabella), use_container_width=True, hide_index=True)
 
-        # Calcolo dinamico slot e PMR
-        slot_occupati = len(self.storico_acquisti)
-        slot_rimanenti = max(1, 25 - slot_occupati)
-        pmr = round(self.crediti_rimasti / slot_rimanenti, 1)
-        self.lbl_sbarramento.config(text=f"PMR per i rimanenti {slot_rimanenti} slot: {pmr} cr/slot")
+st.divider()
+st.subheader("🎯 Target Migliori Rimanenti")
+presi_nomi = [item["Giocatore"].lower() for item in st.session_state.storico]
 
-        # Reset campo di input
-        self.combo_giocatore.set("")
-        self.combo_giocatore['values'] = LISTA_GIOCATORI
-        self.ent_prezzo.delete(0, tk.END)
+cols_t = st.columns(4)
+for idx, (cat, lista_giocatori) in enumerate(TARGET_GIOCATORI.items()):
+    with cols_t[idx % 4]:
+        st.write(f"**{cat}**")
+        for g in lista_giocatori:
+            if any(g.lower() in p for p in presi_nomi):
+                st.caption(f"~~{g}~~ ❌ *(Preso)*")
+            else:
+                st.write(f"🟢 **{g}**")
 
-if __name__ == "__main__":
-    root = tk.Tk()
-    app = FantaAstaApp(root)
-    root.mainloop()
+if st.session_state.storico:
+    st.divider()
+    st.subheader("📜 Storico Acquisti Completo")
+    df_storico = pd.DataFrame(st.session_state.storico)
+    st.dataframe(df_storico, use_container_width=True, hide_index=True)
+    csv = df_storico.to_csv(index=False).encode('utf-8')
+    st.download_button("📥 Scarica Report (CSV)", data=csv, file_name="asta_fantachill.csv", mime="text/csv")
