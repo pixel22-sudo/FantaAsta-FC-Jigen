@@ -13,35 +13,36 @@ SQUADRE_LISTA = [
 
 LIMITI_RUOLO = {"POR": 3, "DIF": 8, "CEN": 8, "ATT": 6}
 
-# PERCENTUALI SPESA MAX CONSIGLIATA SU BUDGET RIMANENTE
-PERCENTUALI_MAX = {"POR": 0.08, "DIF": 0.12, "CEN": 0.20, "ATT": 0.45}
+# PERCENTUALI SPESA MAX CONSIGLIATA
+PERCENTUALI_MAX = {"POR": 0.04, "DIF": 0.16, "CEN": 0.25, "ATT": 0.55}
 
-LISTA_GIOCATORI_COMPLETA = sorted([
-    "Akanji", "Alajbegovic", "Ahanor", "Atta", "Audero", "Baldanzi", "Barella", "Bastoni", "Baturina", 
-    "Bellanova", "Belahyane", "Bernabé", "Beukema", "Bijlow", "Bisseck", "Boga", "Bonny", "Brescianini", 
-    "Bremer", "Butez", "Cacciamani", "Calhanoglu", "Cambiaso", "Camarda", "Carnesecchi", "Casadei", 
-    "Castellanos", "Celik", "Chalobah", "Chukwueze", "Colpani", "Conceicao", "Cristante", "Da Cunha", 
-    "Davis", "De Bruyne", "De Gea", "De Ketelaere", "Di Gregorio", "Di Lorenzo", "Dimarco", "Dodo", 
-    "Doekhi", "Dovbyk", "Dragusin", "Dumfries", "Dybala", "Ederson", "Elmas", "Esposito P.", "Fabbian", 
-    "Fagioli", "Falcone", "Fazzini", "Frattesi", "Frendrup", "Gabbia", "Gatti", "Geubbels", "Gila", 
-    "Gudmundsson", "Guendouzi", "Gütierrez", "Hermoso", "Hojlund", "Ilic", "Isaksen", "Jashari", 
-    "Jones", "Kalulu", "Kean", "Kempf", "Kolo Muani", "Koopmeiners", "Kostic", "Krstovic", "Lobotka", 
-    "Locatelli", "Loftus-Cheek", "Luperto", "Maignan", "Malen", "Mancini", "Mandragora", "Martínez J.", 
-    "Mascardi", "Mastantuono", "McKennie", "McTominay", "Meret", "Milla", "Mina", "Miretti", "Modric", 
-    "Mora", "Moreira", "Motta", "Musah", "Ndicka", "Neres", "Nico Paz", "Nkunku", "Ostigard", 
-    "Orsolini", "Pavard", "Pellegrini", "Perrone", "Piccoli", "Pinamonti", "Politano", "Provedel", 
-    "Pulisic", "Rabiot", "Ramos G.", "Raspadori", "Rensch", "Retegui", "Renzetti", "Romagnoli", 
-    "Rrahmani", "Rovella", "Saelemaekers", "Samardzic", "Scalvini", "Scamacca", "Schmid", "Solet", 
-    "Sommer", "Soulé", "Spence", "Spinazzola", "Stankovic", "Stones", "Strefezza", "Svilar", 
-    "Sucic", "Taylor", "Terracciano", "Thuram K.", "Thuram M.", "Valdepeñas", "Vicario", "Vlahovic", 
-    "Wesley", "Yildiz", "Zaccagni", "Zalewski", "Zaniolo", "Zapata", "Zielinski", "Zortea"
-])
+LOGHI_SQUADRE = {
+    "Inter": "https://a.espncdn.com/i/teamlogos/soccer/500/110.png",
+    "Milan": "https://a.espncdn.com/i/teamlogos/soccer/500/103.png",
+    "Juventus": "https://a.espncdn.com/i/teamlogos/soccer/500/111.png",
+    "Napoli": "https://a.espncdn.com/i/teamlogos/soccer/500/114.png",
+    "Roma": "https://a.espncdn.com/i/teamlogos/soccer/500/104.png",
+    "Lazio": "https://a.espncdn.com/i/teamlogos/soccer/500/112.png",
+    "Atalanta": "https://a.espncdn.com/i/teamlogos/soccer/500/105.png",
+    "Fiorentina": "https://a.espncdn.com/i/teamlogos/soccer/500/109.png",
+    "Torino": "https://a.espncdn.com/i/teamlogos/soccer/500/239.png",
+    "Como": "https://a.espncdn.com/i/teamlogos/soccer/500/2157.png"
+}
+
+DATABASE_GIOCATORI = {
+    "Maignan": "Milan", "Sommer": "Inter", "Svilar": "Roma", "Meret": "Napoli", "Di Gregorio": "Juventus", "Carnesecchi": "Atalanta",
+    "Dimarco": "Inter", "Bremer": "Juventus", "Bastoni": "Inter", "Di Lorenzo": "Napoli", "Akanji": "Inter", "Solet": "Udinese",
+    "Calhanoglu": "Inter", "Pulisic": "Milan", "McTominay": "Napoli", "Nico Paz": "Como", "Orsolini": "Bologna", "Frattesi": "Inter",
+    "Lautaro Martinez": "Inter", "Yildiz": "Juventus", "Hojlund": "Napoli", "Malen": "Roma", "Ramos G.": "Milan", "Kolo Muani": "Juventus"
+}
+
+LISTA_GIOCATORI_COMPLETA = sorted(list(DATABASE_GIOCATORI.keys()))
 
 TARGET_GIOCATORI = {
-    "POR": ["Maignan", "Martínez J.", "Meret", "Svilar", "Carnesecchi", "Vicario"],
-    "DIF": ["Dimarco", "Bremer", "Wesley", "Akanji", "Solet", "Mancini", "Di Lorenzo", "Ostigard"],
-    "CEN": ["Calhanoglu", "McTominay", "Nico Paz", "Orsolini", "Pulisic", "Frattesi", "Atta"],
-    "ATT": ["Lautaro Martinez", "Malen", "Ramos G.", "Hojlund", "Yildiz", "Dovbyk", "Davis", "Kolo Muani"]
+    "POR": ["Maignan", "Meret", "Svilar", "Sommer", "Carnesecchi", "Di Gregorio"],
+    "DIF": ["Dimarco", "Bremer", "Akanji", "Bastoni", "Di Lorenzo", "Solet"],
+    "CEN": ["Calhanoglu", "McTominay", "Pulisic", "Nico Paz", "Orsolini", "Frattesi"],
+    "ATT": ["Lautaro Martinez", "Yildiz", "Hojlund", "Malen", "Ramos G.", "Kolo Muani"]
 }
 
 if "squadre" not in st.session_state:
@@ -64,13 +65,19 @@ with col3:
 with col4:
     prezzo_acq = st.number_input("Prezzo Finale (cr)", min_value=1, max_value=1000, value=1, step=1)
 
-# --- SUGGERITORE LIVE ---
+# SUGGERITORE CON LOGHI E BUDGET REPARTO
 presi_nomi = [item["Giocatore"].lower() for item in st.session_state.storico]
 liberi_ruolo = [g for g in TARGET_GIOCATORI[ruolo_acq] if not any(g.lower() in p for p in presi_nomi)]
 crediti_jigen = st.session_state.squadre["Fc jigen"]["crediti"]
 max_spesa = int(crediti_jigen * PERCENTUALI_MAX[ruolo_acq])
 
-st.info(f"💡 **Copilota per Ruolo {ruolo_acq}:** Max consigliato per un top slot: **{max_spesa} cr** | **Migliori liberi:** {', '.join(liberi_ruolo[:3]) if liberi_ruolo else 'Tutti i target di primo livello presi'}")
+if nome_giocatore and nome_giocatore in DATABASE_GIOCATORI:
+    sq_club = DATABASE_GIOCATORI[nome_giocatore]
+    logo_url = LOGHI_SQUADRE.get(sq_club, "")
+    if logo_url:
+        st.image(logo_url, width=40)
+
+st.info(f"💡 **Copilota {ruolo_acq} (Budget Reparto: {int(1000*PERCENTUALI_MAX[ruolo_acq])} cr):** Max consigliato per un top slot: **{max_spesa} cr** | **Migliori liberi:** {', '.join(liberi_ruolo[:3]) if liberi_ruolo else 'Tutti i target presi'}")
 
 col_b1, col_b2 = st.columns(2)
 with col_b1:
@@ -124,17 +131,19 @@ for k, v in st.session_state.squadre.items():
 st.dataframe(pd.DataFrame(dati_tabella), use_container_width=True, hide_index=True)
 
 st.divider()
-st.subheader("🎯 Tutti i Target Rimanenti")
+st.subheader("🎯 Target Rimanenti con Loghi")
 cols_t = st.columns(4)
 titoli_cat = {"POR": "🧤 PORTIERI", "DIF": "🛡️ DIFENSORI", "CEN": "⚙️ CENTROCAMPISTI", "ATT": "⚽ ATTACCANTI"}
 for idx, (r_code, lista_giocatori) in enumerate(TARGET_GIOCATORI.items()):
     with cols_t[idx % 4]:
         st.write(f"**{titoli_cat[r_code]}**")
         for g in lista_giocatori:
+            club = DATABASE_GIOCATORI.get(g, "")
+            logo = LOGHI_SQUADRE.get(club, "")
             if any(g.lower() in p for p in presi_nomi):
                 st.caption(f"~~{g}~~ ❌ *(Preso)*")
             else:
-                st.write(f"🟢 **{g}**")
+                st.markdown(f"🟢 **{g}** `[{club}]`")
 
 if st.session_state.storico:
     st.divider()
