@@ -3,7 +3,7 @@ import pandas as pd
 
 st.set_page_config(page_title="FantaBrain 5.0 - Copilota Asta", layout="wide", initial_sidebar_state="collapsed")
 
-st.title("⚽ FantaBrain 5.0 - Copilota Automatizzato")
+st.title("⚽ FantaBrain 5.0 - Listone Completo & Copilota")
 st.caption("Asta 10 Squadre | 1000 Crediti | Modificatore Difesa")
 
 SQUADRE_LISTA = [
@@ -12,11 +12,8 @@ SQUADRE_LISTA = [
 ]
 
 LIMITI_RUOLO = {"POR": 3, "DIF": 8, "CEN": 8, "ATT": 6}
-
-# PERCENTUALI SPESA MAX CONSIGLIATA
 PERCENTUALI_MAX = {"POR": 0.04, "DIF": 0.16, "CEN": 0.25, "ATT": 0.55}
 
-# LOGHI SQUADRE SERIE A (URL Diretti CDN)
 LOGHI_SQUADRE = {
     "Inter": "https://a.espncdn.com/i/teamlogos/soccer/500/110.png",
     "Milan": "https://a.espncdn.com/i/teamlogos/soccer/500/103.png",
@@ -29,38 +26,49 @@ LOGHI_SQUADRE = {
     "Torino": "https://a.espncdn.com/i/teamlogos/soccer/500/239.png",
     "Bologna": "https://a.espncdn.com/i/teamlogos/soccer/500/107.png",
     "Como": "https://a.espncdn.com/i/teamlogos/soccer/500/2157.png",
-    "Udinese": "https://a.espncdn.com/i/teamlogos/soccer/500/115.png"
+    "Udinese": "https://a.espncdn.com/i/teamlogos/soccer/500/115.png",
+    "Genoa": "https://a.espncdn.com/i/teamlogos/soccer/500/3263.png",
+    "Verona": "https://a.espncdn.com/i/teamlogos/soccer/500/2602.png",
+    "Cagliari": "https://a.espncdn.com/i/teamlogos/soccer/500/2873.png",
+    "Lecce": "https://a.espncdn.com/i/teamlogos/soccer/500/3445.png",
+    "Empoli": "https://a.espncdn.com/i/teamlogos/soccer/500/1243.png",
+    "Monza": "https://a.espncdn.com/i/teamlogos/soccer/500/11041.png",
+    "Parma": "https://a.espncdn.com/i/teamlogos/soccer/500/113.png",
+    "Venezia": "https://a.espncdn.com/i/teamlogos/soccer/500/2653.png"
 }
 
-# DATABASE COMPLETO DIVISO PER RUOLO E SQUADRA
-DATABASE = {
-    "POR": {
-        "Maignan": "Milan", "Sommer": "Inter", "Svilar": "Roma", 
-        "Meret": "Napoli", "Di Gregorio": "Juventus", "Carnesecchi": "Atalanta"
-    },
-    "DIF": {
-        "Dimarco": "Inter", "Bremer": "Juventus", "Bastoni": "Inter", 
-        "Di Lorenzo": "Napoli", "Akanji": "Inter", "Solet": "Udinese"
-    },
-    "CEN": {
-        "Calhanoglu": "Inter", "Pulisic": "Milan", "McTominay": "Napoli", 
-        "Nico Paz": "Como", "Orsolini": "Bologna", "Frattesi": "Inter"
-    },
-    "ATT": {
-        "Lautaro Martinez": "Inter", "Yildiz": "Juventus", "Hojlund": "Napoli", 
-        "Malen": "Roma", "Ramos G.": "Milan", "Kolo Muani": "Juventus"
-    }
-}
+# CARICAMENTO / PASTE DEL LISTONE
+st.sidebar.header("📥 Carica Listone Personalizzato")
+uploaded_file = st.sidebar.file_content = st.sidebar.file_uploader("Carica File CSV (Nome, Ruolo, Squadra)", type=["csv"])
+
+if uploaded_file is not None:
+    df_listone = pd.read_csv(uploaded_file)
+else:
+    # Se non c'è il CSV caricato, usa un listone esteso integrato
+    data_listone = [
+        {"Nome": "Maignan", "Ruolo": "POR", "Squadra": "Milan"}, {"Nome": "Sommer", "Ruolo": "POR", "Squadra": "Inter"},
+        {"Nome": "Svilar", "Ruolo": "POR", "Squadra": "Roma"}, {"Nome": "Meret", "Ruolo": "POR", "Squadra": "Napoli"},
+        {"Nome": "Di Gregorio", "Ruolo": "POR", "Squadra": "Juventus"}, {"Nome": "Carnesecchi", "Ruolo": "POR", "Squadra": "Atalanta"},
+        {"Nome": "Provedel", "Ruolo": "POR", "Squadra": "Lazio"}, {"Nome": "De Gea", "Ruolo": "POR", "Squadra": "Fiorentina"},
+        {"Nome": "Dimarco", "Ruolo": "DIF", "Squadra": "Inter"}, {"Nome": "Bremer", "Ruolo": "DIF", "Squadra": "Juventus"},
+        {"Nome": "Bastoni", "Ruolo": "DIF", "Squadra": "Inter"}, {"Nome": "Di Lorenzo", "Ruolo": "DIF", "Squadra": "Napoli"},
+        {"Nome": "Theo Hernandez", "Ruolo": "DIF", "Squadra": "Milan"}, {"Nome": "Bellanova", "Ruolo": "DIF", "Squadra": "Atalanta"},
+        {"Nome": "Calhanoglu", "Ruolo": "CEN", "Squadra": "Inter"}, {"Nome": "Pulisic", "Ruolo": "CEN", "Squadra": "Milan"},
+        {"Nome": "McTominay", "Ruolo": "CEN", "Squadra": "Napoli"}, {"Nome": "Nico Paz", "Ruolo": "CEN", "Squadra": "Como"},
+        {"Nome": "Orsolini", "Ruolo": "CEN", "Squadra": "Bologna"}, {"Nome": "Zaccagni", "Ruolo": "CEN", "Squadra": "Lazio"},
+        {"Nome": "Lautaro Martinez", "Ruolo": "ATT", "Squadra": "Inter"}, {"Nome": "Thuram", "Ruolo": "ATT", "Squadra": "Inter"},
+        {"Nome": "Vlahovic", "Ruolo": "ATT", "Squadra": "Juventus"}, {"Nome": "Lukaku", "Ruolo": "ATT", "Squadra": "Napoli"},
+        {"Nome": "Retegui", "Ruolo": "ATT", "Squadra": "Atalanta"}, {"Nome": "Dybala", "Ruolo": "ATT", "Squadra": "Roma"},
+        {"Nome": "Kvaratskhelia", "Ruolo": "ATT", "Squadra": "Napoli"}, {"Nome": "Castellanos", "Ruolo": "ATT", "Squadra": "Lazio"}
+    ]
+    df_listone = pd.DataFrame(data_listone)
 
 if "squadre" not in st.session_state:
-    st.session_state.squadre = {
-        sq: {"crediti": 1000, "POR": 0, "DIF": 0, "CEN": 0, "ATT": 0, "totale": 0} for sq in SQUADRE_LISTA
-    }
+    st.session_state.squadre = {sq: {"crediti": 1000, "POR": 0, "DIF": 0, "CEN": 0, "ATT": 0, "totale": 0} for sq in SQUADRE_LISTA}
 
 if "storico" not in st.session_state:
     st.session_state.storico = []
 
-# Nomi di tutti i giocatori già acquistati
 presi_nomi = [item["Giocatore"].lower() for item in st.session_state.storico]
 
 st.subheader("📝 Registra Chiamata e Acquisto")
@@ -71,34 +79,33 @@ with col1:
 with col2:
     ruolo_acq = st.selectbox("Ruolo Chiamato", ["POR", "DIF", "CEN", "ATT"])
 
-# FILTRAGGIO DINAMICO GIOCATORI LIBERI PER IL RUOLO SELEZIONATO
-diz_ruolo = DATABASE[ruolo_acq]
-giocatori_disponibili = [g for g in diz_ruolo.keys() if g.lower() not in presi_nomi]
+# FILTRO DINAMICO DEL LISTONE INTERO
+df_filtrato = df_listone[(df_listone["Ruolo"] == ruolo_acq) & (~df_listone["Nome"].str.lower().isin(presi_nomi))]
+opzioni_giocatori = sorted(df_filtrato["Nome"].tolist())
 
 col3, col4 = st.columns([2, 1])
 with col3:
     nome_giocatore = st.selectbox(
-        f"Giocatore {ruolo_acq} Disponibile ({len(giocatori_disponibili)} rimasti)", 
-        options=[""] + giocatori_disponibili
+        f"Giocatore {ruolo_acq} Disponibile ({len(opzioni_giocatori)} rimasti)", 
+        options=[""] + opzioni_giocatori
     )
 with col4:
     prezzo_acq = st.number_input("Prezzo Finale (cr)", min_value=1, max_value=1000, value=1, step=1)
 
-# VISUALIZZAZIONE LOGO SQUADRA E INFO COPILOTA
 crediti_jigen = st.session_state.squadre["Fc jigen"]["crediti"]
 max_spesa = int(crediti_jigen * PERCENTUALI_MAX[ruolo_acq])
 
 if nome_giocatore:
-    sq_club = diz_ruolo.get(nome_giocatore, "")
+    sq_club = df_listone[df_listone["Nome"] == nome_giocatore]["Squadra"].values[0]
     logo_url = LOGHI_SQUADRE.get(sq_club, "")
     col_img, col_txt = st.columns([1, 10])
     with col_img:
         if logo_url:
-            st.image(logo_url, width=45)
+            st.image(logo_url, width=40)
     with col_txt:
-        st.markdown(f"**Squadra Serie A:** {sq_club}")
+        st.markdown(f"**Club:** {sq_club}")
 
-st.info(f"💡 **Copilota {ruolo_acq}:** Budget Reparto consigliato ~{int(1000*PERCENTUALI_MAX[ruolo_acq])} cr | Max consigliato per questo slot: **{max_spesa} cr**")
+st.info(f"💡 **Copilota {ruolo_acq}:** Max consigliato slot top: **{max_spesa} cr**")
 
 col_b1, col_b2 = st.columns(2)
 with col_b1:
@@ -130,16 +137,7 @@ with col_b2:
 
 st.divider()
 
-st.subheader("📊 Analisi Crediti & Sbarramento Fc jigen")
-altri_crediti = [v["crediti"] for k, v in st.session_state.squadre.items() if k != "Fc jigen"]
-max_avversario = max(altri_crediti) if altri_crediti else 0
-
-m1, m2, m3 = st.columns(3)
-m1.metric("Fc jigen Crediti", f"{crediti_jigen} cr")
-m2.metric("Sbarramento Assoluto", f"{max_avversario + 1} cr")
-m3.metric("Slot Rimanenti Fc jigen", f"{25 - st.session_state.squadre['Fc jigen']['totale']} / 25")
-
-st.subheader("📋 Quadro Avversari & Prezzo Medio Rimanente (PMR)")
+st.subheader("📊 Quadro Avversari & Prezzo Medio Rimanente (PMR)")
 dati_tabella = []
 for k, v in st.session_state.squadre.items():
     slot_rim = 25 - v["totale"]
@@ -151,28 +149,7 @@ for k, v in st.session_state.squadre.items():
 
 st.dataframe(pd.DataFrame(dati_tabella), use_container_width=True, hide_index=True)
 
-st.divider()
-st.subheader("🎯 Target Rimanenti per Reparto (con Loghi)")
-cols_t = st.columns(4)
-titoli_cat = {"POR": "🧤 PORTIERI", "DIF": "🛡️ DIFENSORI", "CEN": "⚙️ CENTROCAMPISTI", "ATT": "⚽ ATTACCANTI"}
-
-for idx, (r_code, lista_g) in enumerate(DATABASE.items()):
-    with cols_t[idx]:
-        st.write(f"**{titoli_cat[r_code]}**")
-        for g_nome, sq_club in lista_g.items():
-            logo_url = LOGHI_SQUADRE.get(sq_club, "")
-            if g_nome.lower() in presi_nomi:
-                st.caption(f"~~{g_nome}~~ ❌ *(Preso)*")
-            else:
-                col_l, col_n = st.columns([1, 4])
-                with col_l:
-                    if logo_url:
-                        st.image(logo_url, width=22)
-                with col_n:
-                    st.markdown(f"**{g_nome}**")
-
 if st.session_state.storico:
     st.divider()
     st.subheader("📜 Storico Acquisti Completo")
-    df_storico = pd.DataFrame(st.session_state.storico)
-    st.dataframe(df_storico, use_container_width=True, hide_index=True)
+    st.dataframe(pd.DataFrame(st.session_state.storico), use_container_width=True, hide_index=True)
