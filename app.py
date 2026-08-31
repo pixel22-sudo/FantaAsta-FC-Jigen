@@ -13,7 +13,9 @@ SQUADRE_LISTA = [
 
 LIMITI_RUOLO = {"POR": 3, "DIF": 8, "CEN": 8, "ATT": 6}
 
-# LISTA GIOCATORI COMPLETA
+# PERCENTUALI SPESA MAX CONSIGLIATA SU BUDGET RIMANENTE
+PERCENTUALI_MAX = {"POR": 0.08, "DIF": 0.12, "CEN": 0.20, "ATT": 0.45}
+
 LISTA_GIOCATORI_COMPLETA = sorted([
     "Akanji", "Alajbegovic", "Ahanor", "Atta", "Audero", "Baldanzi", "Barella", "Bastoni", "Baturina", 
     "Bellanova", "Belahyane", "Bernabé", "Beukema", "Bijlow", "Bisseck", "Boga", "Bonny", "Brescianini", 
@@ -36,10 +38,10 @@ LISTA_GIOCATORI_COMPLETA = sorted([
 ])
 
 TARGET_GIOCATORI = {
-    "🧤 PORTIERI": ["Maignan", "Martínez J.", "Meret", "Svilar", "Carnesecchi", "Vicario"],
-    "🛡️ DIFENSORI": ["Dimarco", "Bremer", "Wesley", "Akanji", "Solet", "Mancini", "Di Lorenzo", "Ostigard"],
-    "⚙️ CENTROCAMPISTI": ["Calhanoglu", "McTominay", "Nico Paz", "Orsolini", "Pulisic", "Frattesi", "Atta"],
-    "⚽ ATTACCANTI": ["Lautaro Martinez", "Malen", "Ramos G.", "Hojlund", "Yildiz", "Dovbyk", "Davis", "Kolo Muani"]
+    "POR": ["Maignan", "Martínez J.", "Meret", "Svilar", "Carnesecchi", "Vicario"],
+    "DIF": ["Dimarco", "Bremer", "Wesley", "Akanji", "Solet", "Mancini", "Di Lorenzo", "Ostigard"],
+    "CEN": ["Calhanoglu", "McTominay", "Nico Paz", "Orsolini", "Pulisic", "Frattesi", "Atta"],
+    "ATT": ["Lautaro Martinez", "Malen", "Ramos G.", "Hojlund", "Yildiz", "Dovbyk", "Davis", "Kolo Muani"]
 }
 
 if "squadre" not in st.session_state:
@@ -50,17 +52,25 @@ if "squadre" not in st.session_state:
 if "storico" not in st.session_state:
     st.session_state.storico = []
 
-st.subheader("📝 Registra Acquisto in Tempo Reale")
+st.subheader("📝 Registra Chiamata e Acquisto")
 
 col1, col2, col3, col4 = st.columns([2, 1, 2, 1])
 with col1:
     squadra_acq = st.selectbox("Squadra Acquirente", list(st.session_state.squadre.keys()))
 with col2:
-    ruolo_acq = st.selectbox("Ruolo", ["ATT", "CEN", "DIF", "POR"])
+    ruolo_acq = st.selectbox("Ruolo Chiamato", ["ATT", "CEN", "DIF", "POR"])
 with col3:
-    nome_giocatore = st.selectbox("Giocatore", options=[""] + LISTA_GIOCATORI_COMPLETA)
+    nome_giocatore = st.selectbox("Giocatore Chiamato", options=[""] + LISTA_GIOCATORI_COMPLETA)
 with col4:
-    prezzo_acq = st.number_input("Prezzo (cr)", min_value=1, max_value=1000, value=1, step=1)
+    prezzo_acq = st.number_input("Prezzo Finale (cr)", min_value=1, max_value=1000, value=1, step=1)
+
+# --- SUGGERITORE LIVE ---
+presi_nomi = [item["Giocatore"].lower() for item in st.session_state.storico]
+liberi_ruolo = [g for g in TARGET_GIOCATORI[ruolo_acq] if not any(g.lower() in p for p in presi_nomi)]
+crediti_jigen = st.session_state.squadre["Fc jigen"]["crediti"]
+max_spesa = int(crediti_jigen * PERCENTUALI_MAX[ruolo_acq])
+
+st.info(f"💡 **Copilota per Ruolo {ruolo_acq}:** Max consigliato per un top slot: **{max_spesa} cr** | **Migliori liberi:** {', '.join(liberi_ruolo[:3]) if liberi_ruolo else 'Tutti i target di primo livello presi'}")
 
 col_b1, col_b2 = st.columns(2)
 with col_b1:
@@ -93,12 +103,11 @@ with col_b2:
 st.divider()
 
 st.subheader("📊 Analisi Sbarramento & Crediti Fc jigen")
-crediti_miei = st.session_state.squadre["Fc jigen"]["crediti"]
 altri_crediti = [v["crediti"] for k, v in st.session_state.squadre.items() if k != "Fc jigen"]
 max_avversario = max(altri_crediti) if altri_crediti else 0
 
 m1, m2, m3 = st.columns(3)
-m1.metric("Fc jigen Crediti", f"{crediti_miei} cr")
+m1.metric("Fc jigen Crediti", f"{crediti_jigen} cr")
 m2.metric("Sbarramento Assoluto", f"{max_avversario + 1} cr")
 m3.metric("Slot Rimanenti Fc jigen", f"{25 - st.session_state.squadre['Fc jigen']['totale']} / 25")
 
@@ -115,13 +124,12 @@ for k, v in st.session_state.squadre.items():
 st.dataframe(pd.DataFrame(dati_tabella), use_container_width=True, hide_index=True)
 
 st.divider()
-st.subheader("🎯 Target Migliori Rimanenti")
-presi_nomi = [item["Giocatore"].lower() for item in st.session_state.storico]
-
+st.subheader("🎯 Tutti i Target Rimanenti")
 cols_t = st.columns(4)
-for idx, (cat, lista_giocatori) in enumerate(TARGET_GIOCATORI.items()):
+titoli_cat = {"POR": "🧤 PORTIERI", "DIF": "🛡️ DIFENSORI", "CEN": "⚙️ CENTROCAMPISTI", "ATT": "⚽ ATTACCANTI"}
+for idx, (r_code, lista_giocatori) in enumerate(TARGET_GIOCATORI.items()):
     with cols_t[idx % 4]:
-        st.write(f"**{cat}**")
+        st.write(f"**{titoli_cat[r_code]}**")
         for g in lista_giocatori:
             if any(g.lower() in p for p in presi_nomi):
                 st.caption(f"~~{g}~~ ❌ *(Preso)*")
