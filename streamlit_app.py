@@ -1,4 +1,4 @@
-# VERSIONE v3.21.5 FANTAMOSSA - MOSSA STABILE
+# VERSIONE v3.24.2 FANTAMOSSA - CLEAN STABLE SENZA MOSSA
 # FC Jigen - file corretto per GitHub
 
 import re
@@ -7,8 +7,10 @@ import streamlit as st
 from io import BytesIO
 import base64
 import pandas as pd
-import json, statistics, hashlib, time
-from supabase import create_client
+import json, statistics, hashlib
+from urllib.request import Request, urlopen
+from urllib.parse import urlencode
+from urllib.error import HTTPError, URLError
 
 import unicodedata
 
@@ -138,79 +140,128 @@ PLAYERS = load_players()
 
 CLOUD_ID = "fc-jigen-main"
 
-@st.cache_resource
-def cloud_client():
+def _cloud_config():
+    """Legge URL e API key da Streamlit Secrets senza inizializzare SDK pesanti."""
     try:
-        # Official Streamlit/Supabase examples use flat SUPABASE_URL/SUPABASE_KEY.
-        # Keep compatibility with the previous [supabase] nested format too.
         url = str(st.secrets.get("SUPABASE_URL", "")).strip()
         key = str(st.secrets.get("SUPABASE_KEY", "")).strip()
         if not url or not key:
             cfg = st.secrets.get("supabase", {})
             url = str(cfg.get("url", "")).strip()
             key = str(cfg.get("key", "")).strip()
-        if not url or not key:
-            return None
-        return create_client(url, key)
-    except Exception as exc:
-        st.session_state["_cloud_error"] = f"{type(exc).__name__}: {exc}"
-        return None
+        return url.rstrip("/"), key
+    except Exception:
+        return "", ""
+
 
 def cloud_config_status():
-    try:
-        url = str(st.secrets.get("SUPABASE_URL", "")).strip()
-        key = str(st.secrets.get("SUPABASE_KEY", "")).strip()
-        if url and key:
-            return True
-        cfg = st.secrets.get("supabase", {})
-        return bool(str(cfg.get("url", "")).strip() and str(cfg.get("key", "")).strip())
-    except Exception:
-        return False
+    url, key = _cloud_config()
+    return bool(url and key)
+
+
+def _cloud_request(method, params=None, payload=None, timeout=3.0):
+    """REST Supabase diretto con timeout reale e senza retry nascosti dell'SDK."""
+    url, key = _cloud_config()
+    if not url or not key:
+        raise RuntimeError("Configurazione Supabase mancante")
+
+    query = urlencode(params or {})
+    endpoint = f"{url}/rest/v1/fanta_auction_state"
+    if query:
+        endpoint += "?" + query
+
+    body = None if payload is None else json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    headers = {
+        "apikey": key,
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "User-Agent": "FantaMossa/3.23",
+    }
+    if method == "PATCH":
+        headers["Prefer"] = "return=representation"
+
+    req = Request(endpoint, data=body, headers=headers, method=method)
+    with urlopen(req, timeout=float(timeout)) as response:
+        raw = response.read()
+        status = int(getattr(response, "status", 200) or 200)
+    data = json.loads(raw.decode("utf-8")) if raw else None
+    return status, data
+
 
 def cloud_load():
-    sb = cloud_client()
-    if not sb:
+    """Carica una sola riga Cloud; in caso di rete lenta sblocca l'app entro 3 secondi."""
+    if not cloud_config_status():
+        st.session_state["_cloud_read_ok"] = False
+        st.session_state["_cloud_error"] = "Configurazione Supabase mancante"
         return None
     try:
-        res = sb.table("fanta_auction_state").select("state").eq("id", CLOUD_ID).maybe_single().execute()
-        data = getattr(res, "data", None)
-        st.session_state["_cloud_read_ok"] = True
+        status, data = _cloud_request(
+            "GET",
+            params={"select": "state", "id": f"eq.{CLOUD_ID}"},
+            timeout=3.0,
+        )
+        ok = 200 <= status < 300
+        st.session_state["_cloud_read_ok"] = ok
+        if not ok:
+            st.session_state["_cloud_error"] = f"Supabase HTTP {status}"
+            return None
         st.session_state.pop("_cloud_error", None)
-        if data and isinstance(data.get("state"), dict) and data["state"].get("roster") is not None:
-            return data["state"]
+        if isinstance(data, list) and data:
+            state = data[0].get("state") if isinstance(data[0], dict) else None
+            if isinstance(state, dict) and state.get("roster") is not None:
+                return state
+    except (HTTPError, URLError, TimeoutError, OSError) as exc:
+        st.session_state["_cloud_read_ok"] = False
+        st.session_state["_cloud_error"] = f"{type(exc).__name__}: {exc}"
     except Exception as exc:
         st.session_state["_cloud_read_ok"] = False
         st.session_state["_cloud_error"] = f"{type(exc).__name__}: {exc}"
     return None
 
+
 def cloud_save(state):
-    sb = cloud_client()
-    if not sb:
-        st.session_state["_cloud_error"] = "Client Supabase non disponibile"
+    """Salva sul Cloud con timeout breve: l'asta non resta mai appesa alla rete."""
+    if not cloud_config_status():
+        st.session_state["_cloud_error"] = "Configurazione Supabase mancante"
         return False
     try:
-        payload = {"id": CLOUD_ID, "state": state, "updated_at": datetime.now().isoformat()}
-        # The row already exists: UPDATE is simpler and avoids INSERT/UPSERT ambiguity under RLS.
-        res = sb.table("fanta_auction_state").update(payload).eq("id", CLOUD_ID).execute()
-        data = getattr(res, "data", None)
-        ok = isinstance(data, list) and len(data) > 0
+        status, data = _cloud_request(
+            "PATCH",
+            params={"id": f"eq.{CLOUD_ID}"},
+            payload={"state": state, "updated_at": datetime.now().isoformat()},
+            timeout=3.0,
+        )
+        ok = 200 <= status < 300
         if ok:
             st.session_state.pop("_cloud_error", None)
             st.session_state["_cloud_last_save"] = datetime.now().strftime("%H:%M:%S")
         else:
-            st.session_state["_cloud_error"] = "Nessuna riga aggiornata da Supabase"
+            st.session_state["_cloud_error"] = f"Supabase HTTP {status}"
         return ok
+    except (HTTPError, URLError, TimeoutError, OSError) as exc:
+        st.session_state["_cloud_error"] = f"{type(exc).__name__}: {exc}"
+        return False
     except Exception as exc:
         st.session_state["_cloud_error"] = f"{type(exc).__name__}: {exc}"
         return False
 
-def persist():
+
+def persist(force=False):
+    # Se l'avvio Cloud è fallito, evitiamo di sovrascrivere automaticamente
+    # lo stato remoto con uno stato locale vuoto/stale. Il salvataggio manuale
+    # resta possibile perché è una scelta esplicita dell'utente.
+    if not force and st.session_state.get("_cloud_safe_to_write") is False:
+        st.session_state["_cloud_ok"] = False
+        st.session_state["_cloud_error"] = "Cloud non caricato all'avvio: usa SALVA ORA solo se vuoi forzare lo stato locale."
+        return False
     ok = cloud_save(st.session_state.auction)
     st.session_state["_cloud_ok"] = ok
+    if ok:
+        st.session_state["_cloud_safe_to_write"] = True
     return ok
 
 def manual_cloud_save():
-    ok = persist()
+    ok = persist(force=True)
     st.session_state["_cloud_notice"] = (
         "✅ Cloud salvato correttamente" if ok
         else "❌ Salvataggio cloud fallito"
@@ -218,6 +269,7 @@ def manual_cloud_save():
 
 
 
+@st.cache_data(show_spinner=False)
 def recommended_targets():
     """Piano iniziale FC Jigen: modificabile dall'iPhone e salvato nel Cloud."""
     rows = [
@@ -1105,7 +1157,8 @@ def repair_saved_targets():
             if changed: repaired+=1
         else:
             # Cerca la riga del listone per i target manuali.
-            m=all_players()[all_players().key==k]
+            ap_repair = all_players()
+            m = ap_repair[ap_repair.key == k]
             if not m.empty and (int(t.get("ideal",0) or 0)<=0 or int(t.get("max",0) or 0)<=0):
                 auto=auto_target_prices(m.iloc[0])
                 if int(t.get("ideal",0) or 0)<=0: t["ideal"]=auto["ideal"]
@@ -1124,10 +1177,16 @@ def default_state():
     }
 
 if "auction" not in st.session_state:
+    _boot = st.empty()
+    _boot.caption("⚡ Avvio FantaMossa e sincronizzazione Cloud…")
+    had_cloud_config = cloud_config_status()
     cloud_state = cloud_load()
     st.session_state.auction = cloud_state if cloud_state else default_state()
     st.session_state["_cloud_ok"] = bool(cloud_state)
+    st.session_state["_cloud_safe_to_write"] = bool(cloud_state) or not had_cloud_config
 S = st.session_state.auction
+if "_boot" in locals():
+    _boot.empty()
 
 def all_players():
     """Listone base + eventuali nuovi arrivi inseriti da iPhone."""
@@ -1163,31 +1222,18 @@ def all_players():
     return pd.concat([base,custom],ignore_index=True)
 
 
+_DISPLAY_ALIAS_BY_OFFICIAL = {
+    "Martinez L.": "Lautaro",
+    "Paz N.": "Nico Paz",
+    "Ramos G.": "Gonçalo Ramos",
+    "Esposito F.P.": "Pio Esposito",
+}
+
 def player_fast_label(row):
-    """Etichetta per il selettore nativo: ricerca lato browser, senza rerun a ogni lettera."""
+    """Etichetta veloce: lookup alias O(1), niente scansione di tutti gli alias."""
     official = str(row.Nome)
-    aliases = []
-    for alias_norm, target in PLAYER_ALIASES.items():
-        if str(target) == official:
-            # Recover a readable label for the most useful aliases.
-            pretty = {
-                "lautaro": "Lautaro",
-                "nico paz": "Nico Paz",
-                "goncalo ramos": "Gonçalo Ramos",
-                "pio esposito": "Pio Esposito",
-                "mctominay": "McTominay",
-                "calhanoglu": "Calhanoglu",
-                "dimarco": "Dimarco",
-                "thuram": "Thuram",
-                "hojlund": "Hojlund",
-                "pulisic": "Pulisic",
-                "yildiz": "Yildiz",
-                "kean": "Kean",
-                "orsolini": "Orsolini",
-            }.get(alias_norm)
-            if pretty and pretty.lower() not in official.lower():
-                aliases.append(pretty)
-    alias_txt = (" / " + " / ".join(dict.fromkeys(aliases))) if aliases else ""
+    pretty = _DISPLAY_ALIAS_BY_OFFICIAL.get(official, "")
+    alias_txt = f" / {pretty}" if pretty and pretty.lower() not in official.lower() else ""
     return f"{official}{alias_txt} • {row.Ruolo} • {row.Squadra} • FVM {int(row.FVM)}"
 
 def normalize():
@@ -1212,24 +1258,14 @@ def normalize():
         k=f'{x.get("role","")}|{x.get("name","")}'
         if k and k not in S["out"]: S["out"].append(k)
 
-
-
-# v3.21.3 — Branding iPhone / Aggiungi a Home
-# Safari usa il titolo pagina per il nome proposto. L'icona FM resta incorporata e leggera.
-st.markdown(f"""
-<link rel="apple-touch-icon" href="data:image/png;base64,{FANTAMOSSA_ICON_B64}">
-<link rel="apple-touch-icon-precomposed" href="data:image/png;base64,{FANTAMOSSA_ICON_B64}">
-<meta name="apple-mobile-web-app-title" content="FantaMossa">
-<meta name="application-name" content="FantaMossa">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-""", unsafe_allow_html=True)
-
 normalize()
-_repaired_targets = repair_saved_targets()
-if _repaired_targets:
-    st.session_state["_prices_repaired"] = _repaired_targets
-    persist()
+if not st.session_state.get("_targets_repair_done", False):
+    _repaired_targets = repair_saved_targets()
+    st.session_state["_targets_repair_done"] = True
+    if _repaired_targets:
+        # Riparazione locale: verrà salvata al prossimo normale salvataggio.
+        # Evita una PATCH Cloud bloccante durante il primo caricamento.
+        st.session_state["_prices_repaired"] = _repaired_targets
 
 def role_count(role): return sum(x.get("role")==role for x in S["roster"])
 def remaining_slots(): return max(0, 25-len(S["roster"]))
@@ -1661,7 +1697,7 @@ html,body,[data-testid="stAppViewContainer"],[data-testid="stMain"]{max-width:10
 [data-testid="stHeader"]{background:#08251d;border-bottom:1px solid rgba(217,184,95,.13)}
 [data-testid="stToolbar"], [data-testid="stDecoration"], #MainMenu, footer{display:none!important}
 [data-testid="stSidebar"]{background:#08231c!important;border-right:1px solid var(--fm-line)}
-.block-container{max-width:100%!important;padding-top:.55rem;padding-bottom:8.5rem!important;overflow-x:hidden!important}
+.block-container{max-width:100%!important;padding-top:.55rem;padding-bottom:2.2rem!important;overflow-x:hidden!important}
 
 /* Global readability */
 [data-testid="stMarkdownContainer"] p,[data-testid="stMarkdownContainer"] li{color:var(--fm-text)!important}
@@ -1718,13 +1754,8 @@ div.stButton>button{min-height:47px;font-weight:900;border-radius:14px;border:1p
 div.stButton>button p{color:inherit!important;font-weight:900!important}div.stButton>button:hover{background:#17493b;border-color:var(--fm-gold-hi);color:#fff}
 div.stButton>button[kind="primary"]{background:var(--fm-gold)!important;color:#062019!important;border-color:var(--fm-gold-hi)!important;font-weight:950!important}div.stButton>button[kind="primary"] p{color:#062019!important}
 
-/* Navigation: sticky, app-like */
-.st-key-fm_main_nav{position:sticky;top:.2rem;z-index:999;background:#07251d;padding:4px 0 7px;margin:0 0 4px}
-.st-key-fm_main_nav div[role="radiogroup"]{display:flex!important;width:100%!important;gap:5px!important}
-.st-key-fm_main_nav button{flex:1 1 0!important;min-width:0!important;padding:.42rem .12rem!important;font-size:.73rem!important;font-weight:900!important;border-radius:12px!important;border:1px solid rgba(217,184,95,.34)!important;background:#10382d!important;color:var(--fm-text)!important}
-.st-key-fm_main_nav button p{color:inherit!important}.st-key-fm_main_nav button[aria-checked="true"]{background:var(--fm-gold)!important;color:#062019!important;border-color:var(--fm-gold-hi)!important}
-.st-key-live_role button,.st-key-mossa_role_filter button,.st-key-mossa_tool button,.st-key-fm_extra_tool button{background:#10382d!important;color:var(--fm-text)!important;border-color:rgba(217,184,95,.30)!important;font-weight:850!important}
-.st-key-live_role button[aria-checked="true"],.st-key-mossa_role_filter button[aria-checked="true"],.st-key-mossa_tool button[aria-checked="true"],.st-key-fm_extra_tool button[aria-checked="true"]{background:var(--fm-gold)!important;color:#062019!important}
+.st-key-live_role button,.st-key-fm_extra_tool button{background:#10382d!important;color:var(--fm-text)!important;border-color:rgba(217,184,95,.30)!important;font-weight:850!important}
+.st-key-live_role button[aria-checked="true"],.st-key-fm_extra_tool button[aria-checked="true"]{background:var(--fm-gold)!important;color:#062019!important}
 
 /* Secondary components */
 [data-testid="stExpander"]{border-color:rgba(217,184,95,.25)!important;border-radius:14px!important;background:rgba(14,51,41,.55)}
@@ -1846,7 +1877,7 @@ cloud_badge = "☁️ OK" if st.session_state.get("_cloud_ok") else "☁️ Clou
 st.markdown(
     f"""<div class="fm-head">
       <img class="fm-logo" src="data:image/png;base64,{FANTAMOSSA_ICON_B64}">
-      <div class="fm-brandbox"><div class="fm-brand">FantaMossa</div><div class="fm-sub">FC Jigen • Asta 2026/27</div></div>
+      <div class="fm-brandbox"><div class="fm-brand">FantaMossa</div><div class="fm-sub">FC Jigen • Asta 2026/27 • v3.24.2</div></div>
       <div class="fm-cloud">{cloud_badge}</div>
     </div>""",
     unsafe_allow_html=True
@@ -1854,9 +1885,9 @@ st.markdown(
 
 with st.sidebar:
     st.header("⚙️ FantaMossa")
-    st.caption("Controlli rapidi")
-    st.button("☁️ SALVA ORA", use_container_width=True, on_click=_quick_cloud_save, key="sidebar_quick_save")
-    st.button("↩️ ANNULLA ULTIMA", use_container_width=True, on_click=_quick_undo, key="sidebar_quick_undo")
+    st.caption("Controlli rapidi • v3.24.2")
+    st.button("☁️ SALVA ORA", width="stretch", on_click=_quick_cloud_save, key="sidebar_quick_save")
+    st.button("↩️ ANNULLA ULTIMA", width="stretch", on_click=_quick_undo, key="sidebar_quick_undo")
     quick_sidebar_notice=st.session_state.pop("_quick_notice",None)
     if quick_sidebar_notice:
         st.info(quick_sidebar_notice)
@@ -1869,8 +1900,7 @@ with st.sidebar:
 
     with st.expander("☁️ Cloud, backup e sicurezza", expanded=False):
         secrets_ready = cloud_config_status()
-        sb_ready = cloud_client() is not None
-        if secrets_ready and sb_ready:
+        if secrets_ready:
             if st.session_state.get("_cloud_ok"):
                 last = st.session_state.get("_cloud_last_save", "")
                 st.success("Cloud collegato" + (f" • {last}" if last else ""))
@@ -1885,18 +1915,18 @@ with st.sidebar:
             st.error("Configurazione Cloud non valida")
 
         up=st.file_uploader("Importa backup JSON",type=["json"])
-        if up and st.button("Carica backup",use_container_width=True,key="sidebar_load_backup"):
+        if up and st.button("Carica backup",width="stretch",key="sidebar_load_backup"):
             try:
                 data=json.load(up)
                 if not isinstance(data,dict) or "roster" not in data or "moves" not in data: raise ValueError("Formato non valido")
-                st.session_state.auction=data;normalize();persist();st.rerun()
+                S.clear(); S.update(data); normalize(); persist(force=True); st.rerun()
             except Exception as e: st.error(f"Backup non valido: {e}")
-        st.download_button("⬇️ BACKUP JSON",backup_bytes(),file_name=f"FC_Jigen_{datetime.now():%Y%m%d_%H%M}.json",mime="application/json",use_container_width=True)
+        st.download_button("⬇️ BACKUP JSON",backup_bytes(),file_name=f"FC_Jigen_{datetime.now():%Y%m%d_%H%M}.json",mime="application/json",width="stretch")
 
     with st.expander("⚠️ Nuova asta", expanded=False):
         st.warning("Azzera lo stato corrente. Usa prima BACKUP JSON se vuoi conservarlo.")
-        if st.button("RESET ASTA",use_container_width=True,key="sidebar_reset_auction"):
-            st.session_state.auction=default_state();persist();st.rerun()
+        if st.button("RESET ASTA",width="stretch",key="sidebar_reset_auction"):
+            S.clear(); S.update(default_state()); normalize(); persist(force=True); st.rerun()
 
 st.markdown(
     f"""<div class="fm-summary">
@@ -1909,7 +1939,6 @@ st.markdown(
 
 
 # --- v3.16: pagine isolate. I widget rerenderizzano solo la pagina attiva. ---
-@st.fragment
 def render_asta():
     fm_page("🔥 Asta Live", "Tre tocchi: scegli il giocatore, valuta il prezzo, registra l’esito.")
     st.markdown("""
@@ -2001,11 +2030,11 @@ def render_asta():
             )
 
         b1,b2,b3,b4,b5=st.columns(5)
-        b1.button("− 1",use_container_width=True,on_click=_quick_price,args=(-1,))
-        b2.button("+ 1",use_container_width=True,on_click=_quick_price,args=(1,))
-        b3.button("+ 5",use_container_width=True,on_click=_quick_price,args=(5,))
-        b4.button("+ 10",use_container_width=True,on_click=_quick_price,args=(10,))
-        b5.button("↺",use_container_width=True,on_click=_reset_live_price)
+        b1.button("− 1",width="stretch",on_click=_quick_price,args=(-1,))
+        b2.button("+ 1",width="stretch",on_click=_quick_price,args=(1,))
+        b3.button("+ 5",width="stretch",on_click=_quick_price,args=(5,))
+        b4.button("+ 10",width="stretch",on_click=_quick_price,args=(10,))
+        b5.button("↺",width="stretch",on_click=_reset_live_price)
 
         st.markdown('<div class="fm-step">3 • Registra l’esito</div>', unsafe_allow_html=True)
         st.markdown('<div class="fm-help">Scegli il vincitore: crediti, slot e storico si aggiornano automaticamente.</div>', unsafe_allow_html=True)
@@ -2016,7 +2045,7 @@ def render_asta():
         )
 
         register_label = "✅ PRENDI PER FC JIGEN" if buyer=="FC Jigen" else f"✅ REGISTRA • {buyer}"
-        if st.button(register_label,type="primary",use_container_width=True,key="live_register_main"):
+        if st.button(register_label,type="primary",width="stretch",key="live_register_main"):
             k=row.key
             if price <= 0:
                 st.error("⛔ Inserisci un prezzo di almeno 1 credito.")
@@ -2051,7 +2080,7 @@ def render_asta():
                 st.session_state["_reset_live_price_next"]=True
                 st.rerun()
 
-        if st.button("⛔ SEGNALA INVENDUTO",use_container_width=True,key="live_unsold_main"):
+        if st.button("⛔ SEGNALA INVENDUTO",width="stretch",key="live_unsold_main"):
             S["out"].append(row.key)
             S["moves"].append({"name":row.Nome,"role":row.Ruolo,"team":row.Squadra,"fvm":int(row.FVM),
                                "price":0,"action":"INV","buyer":"-","time":datetime.now().isoformat(timespec="seconds")})
@@ -2081,196 +2110,6 @@ def render_asta():
     else:
         st.markdown('<div class="fm-empty">🔎 Scegli un giocatore per vedere priorità, prezzo ideale, STOP e consiglio live.</div>', unsafe_allow_html=True)
 
-def render_mossa():
-    """Strumenti di decisione senza fragment: evita duplicazioni/stato fantasma."""
-    fm_page(
-        "🧠 La Mossa",
-        "Confronta due giocatori oppure simula un acquisto prima di decidere in Asta."
-    )
-
-    # Suggerimento rapido automatico, senza duplicare la funzione Asta.
-    recs = mossa_recommendations("TUTTI", 1)
-    if not recs.empty:
-        top = recs.iloc[0]
-        st.markdown(
-            f'<div class="fm-pick"><div class="fm-pick-kicker">🔥 Suggerimento rapido • Score {int(top["Score"])}/100</div>'
-            f'<div class="fm-pick-name">{top["Nome"]}</div>'
-            f'<div class="fm-pick-data">{top["R"]} • IDEALE <b>{int(top["Ideale"])}</b> • STOP <b>{int(top["STOP"])}</b></div>'
-            f'<div class="fm-pick-reason">{top["Perché"]}</div></div>',
-            unsafe_allow_html=True
-        )
-
-    mossa_tool = st.segmented_control(
-        "Strumento",
-        ["⚖️ Confronta", "🧮 Simula"],
-        default="⚖️ Confronta",
-        key="mossa_tool_v3"
-    )
-
-    ap = all_players()
-    available = ap[~ap.key.isin(set(S["out"]))].copy()
-
-    if available.empty:
-        st.info("Non ci sono giocatori disponibili.")
-        return
-
-    # ---------------- CONFRONTA ----------------
-    if mossa_tool == "⚖️ Confronta":
-        st.markdown("### ⚖️ Confronta due giocatori")
-        st.caption("Puoi confrontare anche ruoli diversi. Se inserisci i prezzi, il confronto considera anche la convenienza d'asta.")
-
-        av_cmp = available.sort_values(["FVM", "Nome"], ascending=[False, True]).copy()
-        cmp_map = {str(r.key): r for _, r in av_cmp.iterrows()}
-        cmp_keys = list(cmp_map.keys())
-
-        c1, c2 = st.columns(2)
-        with c1:
-            key_a = st.selectbox(
-                "Giocatore A",
-                cmp_keys,
-                index=None,
-                placeholder="Scegli il primo giocatore...",
-                key="mossa_cmp_a_v3",
-                format_func=lambda k: player_fast_label(cmp_map[str(k)])
-            )
-        with c2:
-            key_b = st.selectbox(
-                "Giocatore B",
-                cmp_keys,
-                index=None,
-                placeholder="Scegli il secondo giocatore...",
-                key="mossa_cmp_b_v3",
-                format_func=lambda k: player_fast_label(cmp_map[str(k)])
-            )
-
-        if not key_a or not key_b:
-            st.info("Seleziona due giocatori per vedere il confronto.")
-            return
-
-        row_a = cmp_map[str(key_a)]
-        row_b = cmp_map[str(key_b)]
-
-        if str(row_a.key) == str(row_b.key):
-            st.warning("Scegli due giocatori diversi.")
-            return
-
-        p1, p2 = st.columns(2)
-        with p1:
-            price_a = st.number_input(
-                f"Prezzo ipotizzato • {row_a.Nome}",
-                min_value=0, step=1, value=0,
-                key="mossa_cmp_price_a_v3",
-                help="Lascia 0 se non vuoi considerare il prezzo."
-            )
-        with p2:
-            price_b = st.number_input(
-                f"Prezzo ipotizzato • {row_b.Nome}",
-                min_value=0, step=1, value=0,
-                key="mossa_cmp_price_b_v3",
-                help="Lascia 0 se non vuoi considerare il prezzo."
-            )
-
-        a, b, winner = mossa_compare(row_a, row_b, price_a, price_b)
-
-        if winner == "PARI":
-            st.warning("⚖️ Risultato: equilibrio quasi perfetto.")
-        else:
-            st.success(f"🏆 FantaMossa preferisce: {winner}")
-
-        # KPI leggibili prima della tabella dettagliata.
-        ka1, ka2 = st.columns(2)
-        with ka1:
-            st.markdown(f"#### {row_a.Nome}")
-            st.metric("Score", f'{a["Score"]}/100')
-            st.caption(f'{a["Ruolo"]} • {a["Squadra"]} • FVM {a["FVM"]} • STOP {a["STOP"]}')
-        with ka2:
-            st.markdown(f"#### {row_b.Nome}")
-            st.metric("Score", f'{b["Score"]}/100')
-            st.caption(f'{b["Ruolo"]} • {b["Squadra"]} • FVM {b["FVM"]} • STOP {b["STOP"]}')
-
-        detail = pd.DataFrame([a, b]).set_index("Nome").T
-        st.dataframe(detail, use_container_width=True)
-
-    # ---------------- SIMULA ----------------
-    else:
-        st.markdown("### 🧮 Simula un acquisto")
-        st.caption("Non registra nulla e non modifica il Cloud: serve solo a vedere l'effetto sul budget e sugli slot.")
-
-        av_sim = available.sort_values(["FVM", "Nome"], ascending=[False, True]).copy()
-        sim_map = {str(r.key): r for _, r in av_sim.iterrows()}
-        sim_keys = list(sim_map.keys())
-
-        sim_key = st.selectbox(
-            "Giocatore da simulare",
-            sim_keys,
-            index=None,
-            placeholder="Scegli il giocatore...",
-            key="mossa_sim_pick_v3",
-            format_func=lambda k: player_fast_label(sim_map[str(k)])
-        )
-
-        if not sim_key:
-            st.info("Seleziona un giocatore da simulare.")
-            return
-
-        row = sim_map[str(sim_key)]
-        plan = effective_target_plan(row)
-        ideal = max(1, int(plan.get("ideal", 1) or 1))
-        stop = max(ideal, int(plan.get("max", ideal) or ideal))
-        default_price = min(ideal, max(1, max_absolute()))
-
-        st.markdown(
-            f'<div class="fm-player-card">'
-            f'<div class="fm-player-name">{row.Nome}</div>'
-            f'<div class="fm-player-meta">{row.Ruolo} • {row.Squadra} • FVM {int(row.FVM)} • IDEALE {ideal} • STOP {stop}</div>'
-            f'</div>',
-            unsafe_allow_html=True
-        )
-
-        sim_price = st.number_input(
-            "Prezzo ipotizzato",
-            min_value=1,
-            step=1,
-            value=max(1, default_price),
-            key=f"mossa_sim_price_v3_{str(sim_key)}"
-        )
-
-        sc = mossa_scenario(row, sim_price)
-        sig = auction_signal(row, int(sim_price), plan, player_intel(row))
-        score = mossa_decision_score(row, int(sim_price))
-
-        label = str(sig.get("label", ""))
-        if label.startswith("🟢"):
-            st.success(f"{label} • Score {score}/100")
-        elif label.startswith("🟡"):
-            st.warning(f"{label} • Score {score}/100")
-        else:
-            st.error(f"{label or '🔴 LASCIA'} • Score {score}/100")
-
-        s1, s2, s3 = st.columns(3)
-        s1.metric("Crediti dopo", sc["credits_after"])
-        s2.metric("Slot mancanti", sc["missing_after"])
-        s3.metric("Crediti / slot", sc["avg_per_slot"])
-
-        st.caption(
-            f"Riserva minima finale: {sc['minimum_reserve']} • "
-            f"Crediti liberi oltre riserva: {sc['free_credits']} • "
-            f"Piano residuo stimato: {sc['planned_remaining_total']}"
-        )
-
-        st.dataframe(sc["roles"], hide_index=True, use_container_width=True)
-
-        if not sc.get("feasible", True):
-            st.error("⛔ Questo acquisto non è sostenibile con lo stato attuale della rosa.")
-        elif int(sim_price) > stop:
-            st.error(f"⛔ Il prezzo supera lo STOP di {stop}.")
-        elif int(sim_price) <= ideal:
-            st.success(f"✅ Prezzo dentro l'IDEALE ({ideal}).")
-        else:
-            st.warning(f"⚠️ Prezzo sopra l'ideale ma ancora entro lo STOP ({stop}).")
-
-
-@st.fragment
 def render_radar():
     fm_page("📡 Radar", "Pressione d’asta, scarsità per ruolo e potenza residua degli avversari.")
     rr=[]
@@ -2279,21 +2118,20 @@ def render_radar():
         label="CRITICA" if sc>=75 else "ALTA" if sc>=55 else "MEDIA" if sc>=32 else "BASSA"
         rr.append({"Ruolo":r,"Pressione":sc,"Livello":label,"Avversari interessati":n,
                    "Scarsità":scarcity(r),"Urgenza FC Jigen":urgency(r)})
-    st.dataframe(pd.DataFrame(rr),hide_index=True,use_container_width=True)
+    st.dataframe(pd.DataFrame(rr),hide_index=True,width="stretch")
     rivals=[]
     for n,d in S["rivals"].items():
         avg=d["credits"]/max(1,d["slots"])
         rivals.append({"Squadra":n,"Crediti":d["credits"],"Slot":d["slots"],"Crediti/slot":round(avg,1),
                        "Potenza":"ALTA" if avg>=45 else "MEDIA" if avg>=25 else "BASSA"})
-    st.dataframe(pd.DataFrame(rivals).sort_values("Crediti/slot",ascending=False),hide_index=True,use_container_width=True)
+    st.dataframe(pd.DataFrame(rivals).sort_values("Crediti/slot",ascending=False),hide_index=True,width="stretch")
 
-@st.fragment
 def render_rivali():
     fm_page("👥 Rivali", "Controlla chi ha ancora più potere di spesa e aggiorna i dati solo quando serve.")
     rows=[{"Squadra":n,"Crediti":x["credits"],"Slot":x["slots"],**x["roles"],
            "Crediti/slot":round(x["credits"]/max(1,x["slots"]),1)} for n,x in S["rivals"].items()]
     rview=pd.DataFrame(rows).sort_values(["Crediti/slot","Crediti"],ascending=False)
-    st.dataframe(rview,hide_index=True,use_container_width=True)
+    st.dataframe(rview,hide_index=True,width="stretch")
 
     with st.expander("✏️ Aggiorna un rivale", expanded=False):
         selected=st.selectbox("Squadra",RIVALS,key="rival_edit_team")
@@ -2307,10 +2145,9 @@ def render_rivali():
         with c2:
             vals={}
             for r in SLOTS: vals[r]=st.number_input(f"Slot {r}",0,SLOTS[r],int(d["roles"][r]),key=f"rv_{r}")
-        if st.button("💾 SALVA RIVALE",type="primary",use_container_width=True,key="save_rival_edit"):
+        if st.button("💾 SALVA RIVALE",type="primary",width="stretch",key="save_rival_edit"):
             d["credits"]=int(cred);d["slots"]=int(slots);d["roles"]={r:int(vals[r]) for r in SLOTS};persist();st.rerun()
 
-@st.fragment
 def render_rosa():
     fm_page("📋 Rosa FC Jigen", "Controlla composizione, spesa e slot ancora da riempire.")
     c1,c2,c3,c4=st.columns(4)
@@ -2321,12 +2158,11 @@ def render_rosa():
         st.caption(f"{len(S['roster'])}/25 giocatori • {spent} crediti spesi • {S['credits']} residui")
         rdf=pd.DataFrame(S["roster"]).rename(columns={"name":"Nome","role":"Ruolo","team":"Squadra","fvm":"FVM","price":"Prezzo"})
         rdf=rdf[[c for c in ["Nome","Ruolo","Squadra","FVM","Prezzo"] if c in rdf.columns]]
-        st.dataframe(rdf,hide_index=True,use_container_width=True)
-        st.download_button("⬇️ ESPORTA ROSA CSV",rdf.to_csv(index=False).encode(),file_name="rosa_fc_jigen.csv",mime="text/csv",use_container_width=True)
+        st.dataframe(rdf,hide_index=True,width="stretch")
+        st.download_button("⬇️ ESPORTA ROSA CSV",rdf.to_csv(index=False).encode(),file_name="rosa_fc_jigen.csv",mime="text/csv",width="stretch")
     else:
         st.markdown('<div class="fm-empty">👕 La rosa è ancora vuota. Gli acquisti registrati in Asta compariranno qui automaticamente.</div>',unsafe_allow_html=True)
 
-@st.fragment
 def render_piano():
     fm_page("🎯 Piano Asta", "Budget per ruolo, target, alternative e gestione degli arrivi dell’ultimo minuto.")
     st.caption("Snapshot 01/09/2026 • modifiche salvate nel Cloud")
@@ -2342,14 +2178,14 @@ def render_piano():
         st.success(f"✅ Budget piano: {total_plan}/1000")
     else:
         st.warning(f"⚠️ Budget piano: {total_plan}/1000 • differenza {BUDGET-total_plan:+d}")
-    if st.button("💾 SALVA BUDGET",use_container_width=True):
+    if st.button("💾 SALVA BUDGET",width="stretch"):
         S["plan_budget"]={r:int(bp[r]) for r in bp}
         persist();st.success("Budget salvato nel Cloud")
 
     st.divider()
     cplan1,cplan2=st.columns(2)
     with cplan1:
-        if st.button("⚡ CARICA PIANO FC JIGEN",type="primary",use_container_width=True):
+        if st.button("⚡ CARICA PIANO FC JIGEN",type="primary",width="stretch"):
             rec=recommended_targets()
             # Merge intelligente: aggiunge i mancanti e corregge solo i campi zero/vuoti.
             for k,v in rec.items():
@@ -2379,7 +2215,7 @@ def render_piano():
         cc3,cc4=st.columns(2)
         nq=cc3.number_input("Quotazione",min_value=1,max_value=60,value=1,step=1,key="new_player_qta")
         nf=cc4.number_input("FVM / 1000",min_value=1,max_value=600,value=25,step=1,key="new_player_fvm")
-        if st.button("✅ AGGIUNGI AL LISTONE",use_container_width=True,key="add_deadline_player"):
+        if st.button("✅ AGGIUNGI AL LISTONE",width="stretch",key="add_deadline_player"):
             name=str(nm).strip()
             if not name:
                 st.error("Inserisci il nome.")
@@ -2403,13 +2239,13 @@ def render_piano():
         })
         cdf["Elimina"]=False
         edited_custom=st.data_editor(
-            cdf,hide_index=True,use_container_width=True,
+            cdf,hide_index=True,width="stretch",
             disabled=["Nome","Ruolo","Squadra","Qt.A","FVM","Inserito"],
             column_order=["Nome","Ruolo","Squadra","Qt.A","FVM","Elimina"],
             column_config={"Elimina":st.column_config.CheckboxColumn("Elimina")},
             key="deadline_editor"
         )
-        if st.button("🗑️ SALVA ELIMINAZIONI",use_container_width=True,key="delete_deadline_players"):
+        if st.button("🗑️ SALVA ELIMINAZIONI",width="stretch",key="delete_deadline_players"):
             to_delete=set()
             for _,rr in edited_custom.iterrows():
                 if bool(rr.get("Elimina",False)):
@@ -2435,7 +2271,7 @@ def render_piano():
     maxp=tc3.number_input("STOP massimo",min_value=0,max_value=BUDGET,value=0,step=1,key="targetmax")
     alternatives=st.text_input("Alternative immediate",placeholder="Es. McTominay / Calhanoglu",key="targetalt")
     notes=st.text_input("Nota",placeholder="Es. non superare lo STOP",key="targetnote")
-    if t and st.button("➕ SALVA TARGET",use_container_width=True):
+    if t and st.button("➕ SALVA TARGET",width="stretch"):
         name=t.split(" • ")[0]
         rr=pool[pool.Nome==name].iloc[0]
         auto=auto_target_prices(rr)
@@ -2473,7 +2309,7 @@ def render_piano():
         edited=st.data_editor(
             tdf,
             hide_index=True,
-            use_container_width=True,
+            width="stretch",
             height=520,
             disabled=["_key","Nome","Ruolo","Squadra","FVM"],
             column_order=["Nome","Ruolo","Priorità","Ideale","STOP","Alternative","Note","Stato","Elimina"],
@@ -2486,7 +2322,7 @@ def render_piano():
             },
             key="targets_editor"
         )
-        if st.button("💾 SALVA MODIFICHE TARGET",type="primary",use_container_width=True):
+        if st.button("💾 SALVA MODIFICHE TARGET",type="primary",width="stretch"):
             new_targets={}
             for _,rr in edited.iterrows():
                 if bool(rr.get("Elimina",False)):
@@ -2521,11 +2357,10 @@ def render_piano():
             adf["_ord"]=adf["P"].map({"A":0,"B":1,"C":2}).fillna(9)
             st.markdown("#### 🚦 Vista rapida asta")
             st.dataframe(adf.sort_values(["R","_ord","FVM"],ascending=[True,True,False]).drop(columns=["_ord"]),
-                         hide_index=True,use_container_width=True)
+                         hide_index=True,width="stretch")
     else:
         st.info("Nessun target. Premi “CARICA PIANO FC JIGEN” oppure aggiungili manualmente.")
 
-@st.fragment
 def render_scommesse():
     fm_page("🎲 Scommesse", "Profili low cost e upside da prendere soltanto quando il prezzo crea valore.")
     st.caption("IDEALE e STOP qui sono dedicati alla scommessa e non sostituiscono il Piano principale.")
@@ -2555,7 +2390,7 @@ def render_scommesse():
         })
     if bets:
         bdf=pd.DataFrame(bets)
-        st.dataframe(bdf,hide_index=True,use_container_width=True)
+        st.dataframe(bdf,hide_index=True,width="stretch")
         pick=st.selectbox("Analizza scommessa",["—"]+[x["Nome"] for x in bets],key="bet_pick")
         if pick!="—":
             rr=ap[ap["Nome"].astype(str)==pick].iloc[0]
@@ -2565,7 +2400,6 @@ def render_scommesse():
     else:
         st.info("Nessuna scommessa in questo filtro.")
 
-@st.fragment
 def render_storico():
     fm_page("📈 Storico", "Tutte le operazioni dell’asta. Puoi correggere errori senza perdere la coerenza dello stato.")
 
@@ -2618,7 +2452,7 @@ def render_storico():
 
         hc1,hc2 = st.columns(2)
         with hc1:
-            if not is_unsold and st.button("💾 SALVA MODIFICA",use_container_width=True,key="history_save_edit"):
+            if not is_unsold and st.button("💾 SALVA MODIFICA",width="stretch",key="history_save_edit"):
                 edited_moves = [dict(x) for x in moves_hist]
                 edited_moves[edit_idx]["buyer"] = new_buyer_hist
                 edited_moves[edit_idx]["price"] = int(new_price_hist)
@@ -2632,7 +2466,7 @@ def render_storico():
                     st.rerun()
 
         with hc2:
-            if st.button("🗑️ ELIMINA MOVIMENTO",use_container_width=True,key="history_delete_move"):
+            if st.button("🗑️ ELIMINA MOVIMENTO",width="stretch",key="history_delete_move"):
                 kept = [dict(x) for j,x in enumerate(moves_hist) if j != edit_idx]
                 errs = rebuild_from_moves(kept)
                 if errs:
@@ -2647,7 +2481,7 @@ def render_storico():
 
     if S["moves"]:
         h=pd.DataFrame(S["moves"])
-        st.dataframe(h.iloc[::-1],hide_index=True,use_container_width=True)
+        st.dataframe(h.iloc[::-1],hide_index=True,width="stretch")
         st.download_button("⬇️ Storico CSV",h.to_csv(index=False).encode(),file_name="storico_asta.csv",mime="text/csv")
         st.caption(f"{len(h)} operazioni • indice mercato {market_index():.2f}x")
     else:st.info("Storico vuoto.")
@@ -2655,118 +2489,74 @@ def render_storico():
 
 
 
-# v3.21.2 — Barra di navigazione orizzontale in basso, stile app.
-if "fm_page" not in st.session_state:
-    st.session_state["fm_page"] = "🔥 Asta"
+# v3.22.0 — Navigazione stabile: widget normale, niente bottom/sticky/callback.
+# È intenzionalmente semplice: meno magia = meno blocchi su iPhone e Streamlit Cloud.
+nav_options = ["🔥 Asta","👕 Rosa","👥 Rivali","••• Altro"]
 
-def _fm_nav_changed():
-    st.session_state["fm_page"] = st.session_state.get("fm_nav_widget", "🔥 Asta")
-
-main_nav = st.session_state["fm_page"]
-
-if main_nav == "🔥 Asta":
-    render_asta()
-elif main_nav == "🧠 Mossa":
-    render_mossa()
-elif main_nav == "👕 Rosa":
-    render_rosa()
-elif main_nav == "👥 Rivali":
-    render_rivali()
-else:
-    fm_page("＋ Altri strumenti", "Approfondimenti e gestione avanzata.")
-    extra = st.segmented_control(
-        "Strumento",
-        ["📡 Radar","🎯 Piano","🎲 Scommesse","📈 Storico"],
-        default="📡 Radar",
-        key="fm_extra_tool",
-        label_visibility="collapsed"
-    )
-    if extra == "📡 Radar": render_radar()
-    elif extra == "🎯 Piano": render_piano()
-    elif extra == "🎲 Scommesse": render_scommesse()
-    else: render_storico()
-
-# CSS della barra: orizzontale, compatta, sticky in fondo.
 st.markdown("""
 <style>
-/* v3.21.2 — BOTTOM BAR ORIZZONTALE */
-.st-key-fm_nav_widget{
-    position:fixed !important;
-    left:50% !important;
-    transform:translateX(-50%) !important;
-    bottom:calc(env(safe-area-inset-bottom, 0px) + 10px) !important;
-    width:min(860px, calc(100vw - 28px)) !important;
-    z-index:9999 !important;
-    background:#06281F !important;
-    border:1px solid rgba(216,183,95,.38) !important;
-    border-radius:20px !important;
-    padding:6px !important;
-    margin-top:14px !important;
-    box-shadow:0 6px 18px rgba(0,0,0,.24) !important;
-}
-.st-key-fm_nav_widget div[role="radiogroup"]{
-    display:grid !important;
-    grid-template-columns:repeat(5,1fr) !important;
-    gap:4px !important;
+.st-key-fm_nav_stable div[role="radiogroup"]{
+    display:flex !important;
     width:100% !important;
+    gap:5px !important;
 }
-.st-key-fm_nav_widget button{
+.st-key-fm_nav_stable button{
+    flex:1 1 0 !important;
     min-width:0 !important;
-    width:100% !important;
-    min-height:55px !important;
-    padding:5px 2px !important;
-    border:0 !important;
-    border-radius:14px !important;
-    background:transparent !important;
-    color:#F3F6F4 !important;
-    font-size:.72rem !important;
     font-weight:900 !important;
-    white-space:nowrap !important;
+    border:1px solid rgba(217,184,95,.34) !important;
+    background:#10382d !important;
 }
-.st-key-fm_nav_widget button p{
-    color:#F3F6F4 !important;
-    font-size:.72rem !important;
-    font-weight:900 !important;
-    white-space:nowrap !important;
-    overflow:hidden !important;
-    text-overflow:clip !important;
+.st-key-fm_nav_stable button[aria-checked="true"]{
+    background:#d9b85f !important;
+    color:#062019 !important;
 }
-.st-key-fm_nav_widget button[aria-checked="true"]{
-    background:rgba(216,183,95,.18) !important;
-    box-shadow:inset 0 -3px 0 #D8B75F !important;
-}
-.st-key-fm_nav_widget button[aria-checked="true"] p{
-    color:#F6E3A9 !important;
-}
-.st-key-fm_nav_widget button:hover{
-    background:rgba(255,255,255,.04) !important;
+.st-key-fm_nav_stable button[aria-checked="true"] p{
+    color:#062019 !important;
 }
 @media(max-width:700px){
-    .st-key-fm_nav_widget{
-        padding:5px !important;
-        border-radius:18px !important;
-    }
-    .st-key-fm_nav_widget div[role="radiogroup"]{
-        grid-template-columns:repeat(5,minmax(0,1fr)) !important;
-        gap:3px !important;
-    }
-    .st-key-fm_nav_widget button,
-    .st-key-fm_nav_widget button p{
-        font-size:.67rem !important;
+    .st-key-fm_nav_stable button,
+    .st-key-fm_nav_stable button p{
+        font-size:.68rem !important;
     }
 }
 </style>
 """, unsafe_allow_html=True)
 
-# Widget finale: 5 voci affiancate, sempre dopo il contenuto.
-nav_options = ["🔥 Asta","🧠 Mossa","👕 Rosa","👥 Rivali","••• Altro"]
-current_default = main_nav if main_nav in nav_options else "••• Altro"
-
-st.segmented_control(
+main_nav = st.segmented_control(
     "Navigazione",
     nav_options,
-    default=current_default,
-    key="fm_nav_widget",
-    on_change=_fm_nav_changed,
+    default="🔥 Asta",
+    key="fm_nav_stable",
     label_visibility="collapsed"
 )
+if main_nav not in nav_options:
+    main_nav = "🔥 Asta"
+
+try:
+    if main_nav == "🔥 Asta":
+        render_asta()
+    elif main_nav == "👕 Rosa":
+        render_rosa()
+    elif main_nav == "👥 Rivali":
+        render_rivali()
+    else:
+        fm_page("＋ Altri strumenti", "Approfondimenti e gestione avanzata.")
+        extra = st.segmented_control(
+            "Strumento",
+            ["📡 Radar","🎯 Piano","🎲 Scommesse","📈 Storico"],
+            default="📡 Radar",
+            key="fm_extra_tool",
+            label_visibility="collapsed"
+        )
+        if extra == "📡 Radar":
+            render_radar()
+        elif extra == "🎯 Piano":
+            render_piano()
+        elif extra == "🎲 Scommesse":
+            render_scommesse()
+        else:
+            render_storico()
+except Exception as exc:
+    # Evita la pagina apparentemente "offline": almeno comunica il tipo di errore UI.
+    st.error(f"⚠️ Errore nella schermata: {type(exc).__name__}. Torna su Asta o ricarica una volta.")
