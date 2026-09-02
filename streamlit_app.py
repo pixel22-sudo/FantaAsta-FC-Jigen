@@ -1,4 +1,4 @@
-# VERSIONE v3.32.0 FANTAMOSSA - POST-ASTA DASHBOARD
+# VERSIONE v3.33.0 FANTAMOSSA - CENTRALE + ASTA SEPARATE
 # FC Jigen - file corretto per GitHub
 
 import re
@@ -1663,15 +1663,38 @@ div.stButton>button{min-height:47px;font-weight:900;border-radius:14px;border:1p
 div.stButton>button p{color:inherit!important;font-weight:900!important}div.stButton>button:hover{background:#17493b;border-color:var(--fm-gold-hi);color:#fff}
 div.stButton>button[kind="primary"]{background:var(--fm-gold)!important;color:#062019!important;border-color:var(--fm-gold-hi)!important;font-weight:950!important}div.stButton>button[kind="primary"] p{color:#062019!important}
 
-/* Navigation: sticky, app-like */
+/* Navigation: sticky, app-like — iPhone high contrast */
 .st-key-fm_main_nav{position:sticky;top:.2rem;z-index:999;background:#07251d;padding:4px 0 7px;margin:0 0 4px}
-.st-key-fm_main_nav div[role="radiogroup"]{display:flex!important;width:100%!important;gap:5px!important}
-.st-key-fm_main_nav button{flex:1 1 0!important;min-width:0!important;padding:.42rem .12rem!important;font-size:.73rem!important;font-weight:900!important;border-radius:12px!important;border:1px solid #d7dde7!important;background:#f7f8fb!important;color:#2d476b!important;-webkit-text-fill-color:#2d476b!important}
-.st-key-fm_main_nav button,.st-key-fm_main_nav button *{color:#2d476b!important;-webkit-text-fill-color:#2d476b!important;fill:#2d476b!important;opacity:1!important}
-.st-key-fm_main_nav button p,.st-key-fm_main_nav button span,.st-key-fm_main_nav button div{color:inherit!important;-webkit-text-fill-color:inherit!important}
-.st-key-fm_main_nav button svg{fill:currentColor!important;color:currentColor!important}
-.st-key-fm_main_nav button[aria-checked="true"]{background:#10382d!important;color:#fff5d1!important;-webkit-text-fill-color:#fff5d1!important;border:2px solid #f05849!important}
-.st-key-fm_main_nav button[aria-checked="true"],.st-key-fm_main_nav button[aria-checked="true"] *{color:#fff5d1!important;-webkit-text-fill-color:#fff5d1!important;fill:#fff5d1!important}
+.st-key-fm_main_nav div[role="radiogroup"]{display:flex!important;width:100%!important;gap:5px!important;background:#07251d!important}
+.st-key-fm_main_nav button{
+ flex:1 1 0!important;min-width:0!important;padding:.42rem .12rem!important;
+ font-size:.73rem!important;font-weight:900!important;border-radius:12px!important;
+ border:1px solid rgba(217,184,95,.45)!important;
+ background:#10382d!important;
+ color:#fff5d1!important;-webkit-text-fill-color:#fff5d1!important;
+ opacity:1!important
+}
+.st-key-fm_main_nav button *{
+ color:#fff5d1!important;-webkit-text-fill-color:#fff5d1!important;
+ fill:#fff5d1!important;opacity:1!important;font-weight:900!important
+}
+.st-key-fm_main_nav button p,.st-key-fm_main_nav button span,.st-key-fm_main_nav button div{
+ color:#fff5d1!important;-webkit-text-fill-color:#fff5d1!important
+}
+.st-key-fm_main_nav button svg{fill:#fff5d1!important;color:#fff5d1!important}
+.st-key-fm_main_nav button[aria-checked="true"]{
+ background:#d9b85f!important;color:#062019!important;-webkit-text-fill-color:#062019!important;
+ border:2px solid #f0d982!important;box-shadow:0 0 0 1px rgba(240,217,130,.12)!important
+}
+.st-key-fm_main_nav button[aria-checked="true"] *{
+ color:#062019!important;-webkit-text-fill-color:#062019!important;fill:#062019!important
+}
+
+.st-key-fm_centrale_nav div[role="radiogroup"]{display:flex!important;width:100%!important;gap:4px!important}
+.st-key-fm_centrale_nav button{flex:1 1 0!important;min-width:0!important;padding:.40rem .08rem!important;font-size:.70rem!important;font-weight:900!important;border-radius:11px!important;border:1px solid rgba(217,184,95,.34)!important;background:#10382d!important;color:#fff5d1!important;-webkit-text-fill-color:#fff5d1!important}
+.st-key-fm_centrale_nav button,.st-key-fm_centrale_nav button *{color:#fff5d1!important;-webkit-text-fill-color:#fff5d1!important;fill:#fff5d1!important;opacity:1!important}
+.st-key-fm_centrale_nav button[aria-checked="true"]{background:#d9b85f!important;color:#062019!important;-webkit-text-fill-color:#062019!important;border:2px solid #f0d982!important}
+.st-key-fm_centrale_nav button[aria-checked="true"],.st-key-fm_centrale_nav button[aria-checked="true"] *{color:#062019!important;-webkit-text-fill-color:#062019!important;fill:#062019!important}
 .st-key-live_role button,.st-key-mossa_role_filter button,.st-key-mossa_tool button,.st-key-fm_extra_tool button{background:#10382d!important;color:var(--fm-text)!important;border-color:rgba(217,184,95,.30)!important;font-weight:850!important}
 .st-key-live_role button[aria-checked="true"],.st-key-mossa_role_filter button[aria-checked="true"],.st-key-mossa_tool button[aria-checked="true"],.st-key-fm_extra_tool button[aria-checked="true"]{background:var(--fm-gold)!important;color:#062019!important}
 
@@ -1803,7 +1826,7 @@ st.markdown(
 
 with st.sidebar:
     st.header("⚙️ FantaMossa")
-    st.caption("Controlli rapidi • v3.32.0")
+    st.caption("Controlli rapidi • v3.33.0")
     st.button("☁️ SALVA ORA", width="stretch", on_click=_quick_cloud_save, key="sidebar_quick_save")
     st.button("↩️ ANNULLA ULTIMA", width="stretch", on_click=_quick_undo, key="sidebar_quick_undo")
     quick_sidebar_notice=st.session_state.pop("_quick_notice",None)
@@ -2069,7 +2092,7 @@ def render_rivali():
         if st.button("💾 SALVA RIVALE",type="primary",width="stretch",key="save_rival_edit"):
             d["credits"]=int(cred);d["slots"]=int(slots);d["roles"]={r:int(vals[r]) for r in SLOTS};persist();st.rerun()
 
-def render_rosa():
+def render_dashboard():
     """Dashboard centrale post-asta: solo calcoli locali, nessuna chiamata Cloud aggiuntiva."""
     fm_page("📊 Dashboard FC Jigen", "Quadro centrale post-asta: valore rosa, forza reparti, affari e punti da monitorare.")
 
@@ -2191,6 +2214,37 @@ def render_rosa():
             mime="text/csv",
             width="stretch"
         )
+
+def render_rosa():
+    """Rosa separata dalla Dashboard: elenco completo e riepilogo per ruolo."""
+    fm_page("👕 Rosa FC Jigen", "La squadra completa, separata dalla Dashboard centrale.")
+    roster=list(S.get("roster", []))
+    if not roster:
+        st.markdown('<div class="fm-empty">👕 La rosa è ancora vuota.</div>', unsafe_allow_html=True)
+        return
+    rdf=pd.DataFrame(roster).rename(columns={"name":"Nome","role":"Ruolo","team":"Squadra","fvm":"FVM","price":"Prezzo"})
+    for col in ["FVM","Prezzo"]:
+        if col not in rdf.columns: rdf[col]=0
+        rdf[col]=pd.to_numeric(rdf[col],errors="coerce").fillna(0).astype(int)
+    def _v(name,field,default=""):
+        return VALUATION_BY_NAME.get(str(name),{}).get(field,default)
+    rdf["Slot"]=rdf["Nome"].map(lambda n:_v(n,"SlotLega10",""))
+    rdf["Titolarità"]=rdf["Nome"].map(lambda n:_v(n,"Titolarita","DA VERIFICARE"))
+    rdf["Affidabilità"]=rdf["Nome"].map(lambda n:_v(n,"Affidabilita","DA VERIFICARE"))
+    rdf["RankRuolo"]=rdf["Nome"].map(lambda n:_v(n,"RankRuolo",999))
+    rdf["TotRuolo"]=rdf["Nome"].map(lambda n:_v(n,"TotRuolo",1))
+    rdf["RankRuolo"]=pd.to_numeric(rdf["RankRuolo"],errors="coerce").fillna(999).astype(int)
+    rdf["TotRuolo"]=pd.to_numeric(rdf["TotRuolo"],errors="coerce").fillna(1).clip(lower=1).astype(int)
+    rdf["Forza"]=((1-((rdf["RankRuolo"]-1)/rdf["TotRuolo"]))*100).clip(0,100).round().astype(int)
+    c1,c2,c3,c4=st.columns(4)
+    for col,role in zip((c1,c2,c3,c4),("POR","DIF","CEN","ATT")):
+        sub=rdf[rdf["Ruolo"].eq(role)]
+        col.metric(role,f"{len(sub)}/{SLOTS[role]}",f"{int(sub['Prezzo'].sum()) if not sub.empty else 0} cr")
+    role_order={"POR":0,"DIF":1,"CEN":2,"ATT":3}
+    rdf["_ord"]=rdf["Ruolo"].map(role_order).fillna(9)
+    rdf=rdf.sort_values(["_ord","Forza"],ascending=[True,False]).drop(columns=["_ord"])
+    st.dataframe(rdf[["Nome","Ruolo","Squadra","Prezzo","FVM","Slot","Forza","Titolarità","Affidabilità"]],hide_index=True,width="stretch")
+    st.download_button("⬇️ ESPORTA ROSA CSV",rdf.to_csv(index=False).encode(),file_name="rosa_fc_jigen_post_asta.csv",mime="text/csv",width="stretch")
 
 def render_piano():
     fm_page("🎯 Piano Asta", "Budget per ruolo, target, alternative e gestione degli arrivi dell’ultimo minuto.")
@@ -2518,28 +2572,31 @@ def render_storico():
 
 
 
-# v3.32.0 — Navigazione stabile post-asta, senza callback/fragment/Mossa.
-nav_options = ["🔥 Asta","📊 Dashboard","👥 Rivali","••• Altro"]
-main_nav = st.segmented_control(
-    "Navigazione", nav_options,
-    default="📊 Dashboard" if len(S.get("roster", [])) >= 25 else "🔥 Asta",
-    key="fm_nav_v331", label_visibility="collapsed"
+# v3.33.0 — Due aree separate: Centrale e Asta.
+main_area = st.segmented_control(
+    "Area principale", ["📊 Centrale", "🔥 Asta"],
+    default="📊 Centrale", key="fm_main_nav", label_visibility="collapsed"
 )
-if main_nav not in nav_options:
-    main_nav = "📊 Dashboard"
-if main_nav == "🔥 Asta":
+if main_area not in ["📊 Centrale", "🔥 Asta"]: main_area = "📊 Centrale"
+
+if main_area == "🔥 Asta":
     render_asta()
-elif main_nav == "📊 Dashboard":
-    render_rosa()
-elif main_nav == "👥 Rivali":
-    render_rivali()
 else:
-    fm_page("＋ Altri strumenti", "Approfondimenti e gestione avanzata.")
-    extra = st.segmented_control(
-        "Strumento", ["📡 Radar","🎯 Piano","🎲 Scommesse","📈 Storico"],
-        default="📡 Radar", key="fm_extra_tool_v331", label_visibility="collapsed"
+    centrale_nav = st.segmented_control(
+        "Centrale", ["📊 Dashboard", "👕 Rosa", "👥 Rivali", "••• Altro"],
+        default="📊 Dashboard", key="fm_centrale_nav", label_visibility="collapsed"
     )
-    if extra == "📡 Radar": render_radar()
-    elif extra == "🎯 Piano": render_piano()
-    elif extra == "🎲 Scommesse": render_scommesse()
-    else: render_storico()
+    if centrale_nav not in ["📊 Dashboard", "👕 Rosa", "👥 Rivali", "••• Altro"]: centrale_nav = "📊 Dashboard"
+    if centrale_nav == "📊 Dashboard": render_dashboard()
+    elif centrale_nav == "👕 Rosa": render_rosa()
+    elif centrale_nav == "👥 Rivali": render_rivali()
+    else:
+        fm_page("＋ Altri strumenti", "Approfondimenti e gestione avanzata.")
+        extra = st.segmented_control(
+            "Strumento", ["📡 Radar","🎯 Piano","🎲 Scommesse","📈 Storico"],
+            default="📡 Radar", key="fm_extra_tool_v333", label_visibility="collapsed"
+        )
+        if extra == "📡 Radar": render_radar()
+        elif extra == "🎯 Piano": render_piano()
+        elif extra == "🎲 Scommesse": render_scommesse()
+        else: render_storico()
