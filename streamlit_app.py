@@ -1,4 +1,4 @@
-# VERSIONE v3.34.0 FANTAMOSSA - DASHBOARD + ROSA + ASTA
+# VERSIONE v3.34.1 FANTAMOSSA - ROSA STATUS FIX
 # FC Jigen - file corretto per GitHub
 
 import re
@@ -1828,7 +1828,7 @@ st.markdown(
 
 with st.sidebar:
     st.header("⚙️ FantaMossa")
-    st.caption("Controlli rapidi • v3.34.0")
+    st.caption("Controlli rapidi • v3.34.1")
     st.button("☁️ SALVA ORA", width="stretch", on_click=_quick_cloud_save, key="sidebar_quick_save")
     st.button("↩️ ANNULLA ULTIMA", width="stretch", on_click=_quick_undo, key="sidebar_quick_undo")
     quick_sidebar_notice=st.session_state.pop("_quick_notice",None)
@@ -2263,7 +2263,12 @@ def _lineup_score(player):
     fvm = float(player.get("fvm",0) or 0)
     if row is not None:
         info = player_intel(row)
-        slot, rank, total = player_slot_info(row)
+        slot_data = slot_priority_advice(row, info)
+        slot_txt = str(slot_data.get("slot", ""))
+        mm = re.match(r"(\d+)", slot_txt)
+        slot = int(mm.group(1)) if mm else SLOTS.get(str(row.Ruolo), 1)
+        rank = int(slot_data.get("rank", 999) or 999)
+        total = int(slot_data.get("total", 999) or 999)
         rank_bonus = 0 if total <= 1 else max(0, 35 * (1 - (rank-1)/(total-1)))
     else:
         info = {"titolarita":"DA VERIFICARE"}
@@ -2717,7 +2722,7 @@ def render_storico():
 
 
 
-# v3.34.0 — Tre mondi principali separati: Dashboard, Rosa, Asta.
+# v3.34.1 — Tre mondi principali separati: Dashboard, Rosa, Asta.
 main_area = st.segmented_control(
     "Mondo principale", ["📊 Dashboard", "👕 Rosa", "🔥 Asta"],
     default="📊 Dashboard", key="fm_main_nav", label_visibility="collapsed"
