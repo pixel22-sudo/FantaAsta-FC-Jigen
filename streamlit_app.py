@@ -1,4 +1,4 @@
-# VERSIONE v4.0.0 FANTAMOSSA - APP EXPERIENCE
+# VERSIONE v4.0.1 FANTAMOSSA - ASTA TOOL HUB
 # FC Jigen - file corretto per GitHub
 
 import re
@@ -3694,7 +3694,30 @@ def render_storico():
 
 
 
-# v4.0.0 — Navigazione principale app-like: Dashboard, Rosa, Giornata, Asta.
+st.markdown("""
+<style>
+@media(max-width:700px){
+  .st-key-fm_asta_nav [data-baseweb="button-group"]{
+    display:grid!important;
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+    gap:6px!important;
+    width:100%!important;
+  }
+  .st-key-fm_asta_nav button{
+    min-width:0!important;
+    width:100%!important;
+    min-height:46px!important;
+    padding:6px 5px!important;
+    font-size:.72rem!important;
+    line-height:1.05!important;
+    white-space:normal!important;
+  }
+}
+</style>
+""", unsafe_allow_html=True)
+
+# v4.0.1 — Strumenti asta riuniti nel mondo Asta; Dashboard alleggerita.
+
 main_area = st.segmented_control(
     "Mondo principale", ["📊 Dashboard", "👕 Rosa", "📅 Giornata", "🔥 Asta"],
     default="📊 Dashboard", key="fm_main_nav", label_visibility="collapsed"
@@ -3703,7 +3726,23 @@ if main_area not in ["📊 Dashboard", "👕 Rosa", "📅 Giornata", "🔥 Asta"
     main_area = "📊 Dashboard"
 
 if main_area == "🔥 Asta":
-    render_asta()
+    asta_nav = st.segmented_control(
+        "Asta",
+        ["🔥 Live", "📡 Radar", "🎯 Piano", "🎲 Scommesse", "📈 Storico"],
+        default="🔥 Live",
+        key="fm_asta_nav",
+        label_visibility="collapsed"
+    )
+    if asta_nav == "📡 Radar":
+        render_radar()
+    elif asta_nav == "🎯 Piano":
+        render_piano()
+    elif asta_nav == "🎲 Scommesse":
+        render_scommesse()
+    elif asta_nav == "📈 Storico":
+        render_storico()
+    else:
+        render_asta()
 elif main_area == "📅 Giornata":
     render_matchday_center()
 elif main_area == "👕 Rosa":
@@ -3716,20 +3755,10 @@ elif main_area == "👕 Rosa":
     else: render_rosa()
 else:
     dash_nav = st.segmented_control(
-        "Dashboard", ["📊 Centrale", "👥 Rivali", "••• Altro"],
+        "Dashboard", ["📊 Centrale", "👥 Rivali"],
         default="📊 Centrale", key="fm_dashboard_nav", label_visibility="collapsed"
     )
     if dash_nav == "👥 Rivali":
         render_rivali()
-    elif dash_nav == "••• Altro":
-        fm_page("＋ Altri strumenti", "Approfondimenti e gestione avanzata.")
-        extra = st.segmented_control(
-            "Strumento", ["📡 Radar","🎯 Piano","🎲 Scommesse","📈 Storico"],
-            default="📡 Radar", key="fm_extra_tool_v334", label_visibility="collapsed"
-        )
-        if extra == "📡 Radar": render_radar()
-        elif extra == "🎯 Piano": render_piano()
-        elif extra == "🎲 Scommesse": render_scommesse()
-        else: render_storico()
     else:
         render_dashboard()
