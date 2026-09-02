@@ -1,4 +1,4 @@
-# VERSIONE v3.36.0 FANTAMOSSA - MATCHDAY CENTER
+# VERSIONE v4.0.0 FANTAMOSSA - APP EXPERIENCE
 # FC Jigen - file corretto per GitHub
 
 import re
@@ -93,6 +93,9 @@ st.markdown(f"""
 <link rel="apple-touch-icon" sizes="96x96" href="data:image/png;base64,{FANTAMOSSA_ICON_B64}">
 <meta name="apple-mobile-web-app-title" content="FantaMossa">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#061f18">
 """, unsafe_allow_html=True)
 
 
@@ -154,7 +157,7 @@ def _cloud_request(method, query="", payload=None):
         "Authorization": f"Bearer {key}",
         "Accept": "application/json",
         "Content-Type": "application/json",
-        "User-Agent": "FantaMossa/3.31",
+        "User-Agent": "FantaMossa/4.0.0",
     }
     if method == "PATCH":
         headers["Prefer"] = "return=representation"
@@ -1788,6 +1791,84 @@ li[role="option"][aria-selected="true"] * {
 
 
 
+st.markdown("""
+<style>
+/* v4.0 — APP EXPERIENCE --------------------------------------------------- */
+:root{
+  --app-bg:#061f18;--app-surface:#0b2f25;--app-surface2:#10392d;--app-line:rgba(236,204,115,.22);
+  --app-gold:#e4c66f;--app-gold2:#ffe8a5;--app-text:#fffaf0;--app-muted:#b9c8c1;
+  --app-ok:#4cd48b;--app-warn:#f2bd58;--app-bad:#ef6b67;--app-neutral:#9ba9a3;
+  --app-shadow:0 14px 34px rgba(0,0,0,.24);
+}
+html,body,[data-testid="stAppViewContainer"]{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif!important}
+[data-testid="stAppViewContainer"]{background:radial-gradient(circle at 50% -10%,#124536 0,#08271f 30%,#041914 72%)!important}
+.block-container{max-width:1080px!important;margin:0 auto!important;padding-left:14px!important;padding-right:14px!important;padding-bottom:110px!important}
+[data-testid="stHeader"]{background:rgba(6,31,24,.72)!important;border-bottom:0!important;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+
+.fm-head{position:sticky;top:8px;z-index:950;border-radius:21px!important;background:rgba(8,39,31,.86)!important;-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);box-shadow:var(--app-shadow);border:1px solid var(--app-line)!important;padding:9px 11px!important}
+.fm-logo{border-radius:13px!important;box-shadow:0 6px 16px rgba(0,0,0,.24)}
+.fm-brand{font-size:1.08rem!important;letter-spacing:-.02em}.fm-sub{font-size:.69rem!important;color:var(--app-muted)!important}
+.fm-cloud{border:0!important;background:rgba(76,212,139,.11)!important;color:#8df0b9!important;padding:6px 9px!important}
+.fm-page{background:transparent!important;border:0!important;padding:13px 2px 7px!important;margin:3px 0 5px!important}
+.fm-page-title{font-size:1.62rem!important;letter-spacing:-.045em!important}.fm-page-sub{font-size:.79rem!important;max-width:680px}
+.fm-summary{margin:7px 0 9px!important}.fm-stat{background:rgba(11,47,37,.82)!important;border:1px solid var(--app-line)!important;border-radius:17px!important;box-shadow:0 7px 18px rgba(0,0,0,.12)}
+.fm-stat-label{color:var(--app-muted)!important}.fm-stat-value{color:var(--app-gold2)!important}
+
+/* Native-like main navigation */
+.st-key-fm_main_nav{background:rgba(5,29,23,.86)!important;-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);border:1px solid rgba(228,198,111,.25);box-shadow:0 16px 44px rgba(0,0,0,.36);border-radius:22px!important;padding:6px!important}
+.st-key-fm_main_nav div[role="radiogroup"]{background:transparent!important;gap:4px!important}
+.st-key-fm_main_nav button{border:0!important;background:transparent!important;border-radius:16px!important;min-height:50px!important;font-size:.68rem!important;box-shadow:none!important}
+.st-key-fm_main_nav button[aria-checked="true"]{background:linear-gradient(180deg,#edd27e,#d5ae4f)!important;border:0!important;box-shadow:0 7px 18px rgba(0,0,0,.22)!important}
+
+/* Secondary segmented controls */
+.st-key-fm_rosa_nav,.st-key-fm_dashboard_nav,.st-key-fm_extra_tool_v334,.st-key-lineup_formation_pick,.st-key-matchday_formation_pick_v400,.st-key-rosa_role_filter_v400{margin:.2rem 0 .6rem}
+.st-key-fm_rosa_nav button,.st-key-fm_dashboard_nav button,.st-key-fm_extra_tool_v334 button,.st-key-lineup_formation_pick button,.st-key-matchday_formation_pick_v400 button,.st-key-rosa_role_filter_v400 button{border-radius:13px!important;font-size:.71rem!important;font-weight:850!important;border:1px solid var(--app-line)!important;background:#0d3328!important;color:#f9edc9!important;min-height:40px!important}
+.st-key-fm_rosa_nav button[aria-checked="true"],.st-key-fm_dashboard_nav button[aria-checked="true"],.st-key-fm_extra_tool_v334 button[aria-checked="true"],.st-key-lineup_formation_pick button[aria-checked="true"],.st-key-matchday_formation_pick_v400 button[aria-checked="true"],.st-key-rosa_role_filter_v400 button[aria-checked="true"]{background:#e4c66f!important;color:#082219!important}
+
+/* Home */
+.app-home-hero{position:relative;overflow:hidden;background:linear-gradient(135deg,#154b39 0%,#0a3025 60%,#102a22 100%);border:1px solid rgba(255,232,165,.22);border-radius:25px;padding:19px 18px 17px;box-shadow:var(--app-shadow);margin:5px 0 10px}
+.app-home-hero:after{content:"";position:absolute;width:180px;height:180px;border-radius:50%;right:-70px;top:-80px;background:radial-gradient(circle,rgba(228,198,111,.22),transparent 68%)}
+.app-home-kicker{font-size:.64rem;letter-spacing:.13em;font-weight:900;color:#e4c66f}.app-home-title{font-size:2rem;font-weight:950;letter-spacing:-.055em;color:#fff;margin-top:3px}.app-home-sub{font-size:.78rem;color:#c5d2cc;margin-top:2px}.app-home-pills{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}.app-home-pills span{font-size:.62rem;font-weight:850;padding:5px 8px;border-radius:999px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.08);color:#f7efd7}
+.app-kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin:8px 0 11px}.app-kpi{background:#0b3026;border:1px solid var(--app-line);border-radius:17px;padding:10px 9px;min-width:0}.app-kpi small{display:block;color:var(--app-muted);font-size:.55rem;font-weight:900;letter-spacing:.04em}.app-kpi b{display:block;color:var(--app-gold2);font-size:1.26rem;line-height:1.15;margin-top:3px}.app-kpi em{font-style:normal;font-size:.67rem;color:var(--app-muted);font-weight:800}
+.app-action{display:flex;flex-direction:column;gap:3px;border-radius:17px;padding:10px 12px;margin:7px 0 12px;border:1px solid var(--app-line)}.app-action b{font-size:.79rem}.app-action span{font-size:.68rem;color:#d7e0dc}.app-action.ok{background:rgba(76,212,139,.08)}.app-action.warn{background:rgba(242,189,88,.08)}
+.app-section-head{display:flex;align-items:end;justify-content:space-between;gap:8px;margin:18px 1px 8px}.app-section-head span{font-size:1rem;font-weight:950;color:var(--app-gold2)}.app-section-head small{font-size:.59rem;color:var(--app-muted);text-align:right}
+.app-role-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}.app-role-card{background:#0b3026;border:1px solid var(--app-line);border-radius:18px;padding:11px}.app-role-top{display:flex;justify-content:space-between;gap:6px;align-items:center}.app-role-top span{font-size:.72rem;font-weight:900;color:#f9edc9}.app-role-top b{font-size:.76rem;color:#fff}.app-bar{height:6px;background:#173f34;border-radius:999px;overflow:hidden;margin:8px 0}.app-bar i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,#c9a64d,#ffe49a)}.app-role-meta{font-size:.59rem;line-height:1.45;color:var(--app-muted)}.app-role-meta b{color:#fff}
+.app-rank-list{display:flex;flex-direction:column;gap:6px}.app-rank-row{display:grid;grid-template-columns:30px 1fr auto;gap:8px;align-items:center;background:#0b3026;border:1px solid rgba(228,198,111,.14);border-radius:15px;padding:9px}.app-rank-n{width:27px;height:27px;border-radius:9px;display:flex;align-items:center;justify-content:center;background:#173f34;color:#e4c66f;font-size:.7rem;font-weight:950}.app-rank-row b{font-size:.77rem;color:#fff}.app-rank-row small{display:block;font-size:.58rem;color:var(--app-muted);margin-top:1px}.app-rank-row strong{font-size:.9rem;color:var(--app-gold2)}
+
+/* Rosa */
+.app-roster-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:6px 0 10px}.app-roster-count{background:#0b3026;border:1px solid var(--app-line);border-radius:16px;padding:9px;text-align:center}.app-roster-count span,.app-roster-count small{display:block;font-size:.56rem;color:var(--app-muted)}.app-roster-count b{display:block;font-size:1rem;color:#fff;margin:2px 0}
+.app-player-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.app-player-card{background:linear-gradient(145deg,#0d352a,#0a2b22);border:1px solid rgba(228,198,111,.19);border-radius:18px;padding:11px;box-shadow:0 6px 17px rgba(0,0,0,.12);min-width:0}.app-player-top{display:flex;align-items:flex-start;justify-content:space-between;gap:6px}.app-player-name{font-size:.84rem;font-weight:950;color:#fff;line-height:1.08}.app-player-team{font-size:.56rem;color:var(--app-muted);margin-top:3px}.app-chip{display:inline-flex;align-items:center;white-space:nowrap;border-radius:999px;padding:4px 6px;font-size:.51rem;font-weight:900}.app-chip.ok{background:rgba(76,212,139,.13);color:#82e8ad}.app-chip.warn{background:rgba(242,189,88,.13);color:#ffd579}.app-chip.bad{background:rgba(239,107,103,.13);color:#ffaaa7}.app-chip.neutral{background:rgba(155,169,163,.12);color:#c7d0cc}.app-player-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;border-top:1px solid rgba(255,255,255,.06);margin-top:9px;padding-top:8px}.app-player-stats span{text-align:center}.app-player-stats b{display:block;font-size:.72rem;color:#f9edc9}.app-player-stats small{display:block;font-size:.46rem;color:#91a69c;margin-top:1px}.app-mini{display:block;font-size:.52rem;color:#8fa59b;margin-top:7px}
+
+/* Stato */
+.app-profile-card{background:linear-gradient(145deg,#113c2f,#092a21);border:1px solid var(--app-line);border-radius:22px;padding:14px;margin:6px 0 10px;box-shadow:var(--app-shadow)}.app-profile-top{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}.app-profile-name{font-size:1.35rem;font-weight:950;color:#fff;letter-spacing:-.03em}.app-profile-team{font-size:.68rem;color:var(--app-muted);margin-top:2px}.app-profile-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:13px}.app-profile-grid span{background:rgba(255,255,255,.045);border-radius:12px;padding:8px;text-align:center}.app-profile-grid b{display:block;font-size:.8rem;color:var(--app-gold2)}.app-profile-grid small{display:block;font-size:.49rem;color:var(--app-muted);margin-top:2px}.app-news-list{display:flex;flex-direction:column;gap:7px}.app-news-card{background:#0b3026;border:1px solid rgba(228,198,111,.15);border-radius:15px;padding:10px}.app-news-card b,.app-news-card a{display:block;color:#fff!important;text-decoration:none;font-size:.72rem;line-height:1.35}.app-news-card small{display:block;color:var(--app-muted);font-size:.55rem;margin-top:4px}
+
+/* Giornata */
+.app-match-hero{display:flex;align-items:center;justify-content:space-between;gap:12px;background:linear-gradient(145deg,#154c39,#0a2f25);border:1px solid var(--app-line);border-radius:23px;padding:14px 15px;box-shadow:var(--app-shadow);margin:6px 0 8px}.app-match-hero>div:first-child{display:flex;flex-direction:column}.app-match-hero small{font-size:.55rem;color:var(--app-muted);font-weight:900;letter-spacing:.07em}.app-match-hero b{font-size:1.65rem;color:#fff;line-height:1;margin:3px 0}.app-match-hero span{font-size:.63rem;color:#f1dfaa}.app-readiness{display:flex!important;align-items:center!important;gap:4px!important}.app-readiness b{font-size:1.8rem!important;color:var(--app-gold2)!important}.app-readiness small{font-size:.48rem!important;line-height:1.1!important}.app-freshness{text-align:center;font-size:.56rem;color:var(--app-muted);margin:-3px 0 8px}.app-decision-list{display:flex;flex-direction:column;gap:6px}.app-decision{background:#0b3026;border:1px solid rgba(242,189,88,.22);border-radius:15px;padding:9px 10px}.app-decision b{display:block;color:#fff;font-size:.75rem}.app-decision span{display:block;color:#f4d98d;font-size:.59rem;margin-top:2px}.app-decision small{display:block;color:var(--app-muted);font-size:.56rem;margin-top:4px}.app-bench-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:7px}.app-bench-card{background:#0b3026;border:1px solid rgba(228,198,111,.15);border-radius:17px;padding:10px}.app-bench-card h4{font-size:.7rem!important;margin:0 0 6px!important;color:var(--app-gold2)!important}.app-bench-row{display:grid;grid-template-columns:24px 1fr;gap:6px;align-items:center;padding:6px 0;border-top:1px solid rgba(255,255,255,.05)}.app-bench-row:first-of-type{border-top:0}.app-bench-row i{font-style:normal;width:22px;height:22px;border-radius:8px;background:#173f34;display:flex;align-items:center;justify-content:center;color:#e4c66f;font-size:.58rem;font-weight:900}.app-bench-row b{display:block;color:#fff;font-size:.66rem}.app-bench-row small{display:block;color:var(--app-muted);font-size:.51rem;margin-top:1px}.app-bench-empty{font-size:.6rem;color:var(--app-muted)}
+.fm-gday-grid{grid-template-columns:repeat(3,1fr)!important}.fm-gday-card{border-radius:17px!important;background:#0b3026!important}.fm-gday-card.best{background:linear-gradient(145deg,#153f31,#0d3328)!important;box-shadow:0 7px 18px rgba(0,0,0,.14)}
+
+/* Streamlit components */
+[data-testid="stMetric"]{background:#0b3026;border:1px solid var(--app-line);border-radius:16px;padding:9px!important}
+[data-testid="stMetricLabel"] p{font-size:.6rem!important;color:var(--app-muted)!important}[data-testid="stMetricValue"]{font-size:1.1rem!important}
+[data-testid="stExpander"]{background:rgba(11,48,38,.58)!important;border-radius:17px!important}
+[data-testid="stDataFrame"]{border-radius:15px!important}
+div.stButton>button,div.stDownloadButton>button{border-radius:15px!important;min-height:45px!important;transition:transform .08s ease,background .15s ease}div.stButton>button:active,div.stDownloadButton>button:active{transform:scale(.985)}
+
+@media(max-width:700px){
+  .block-container{padding:8px 9px 120px!important}
+  .fm-head{top:5px;margin-bottom:5px!important}.fm-logo{width:39px!important;height:39px!important}.fm-cloud{font-size:.58rem!important}.fm-page-title{font-size:1.48rem!important}
+  .st-key-fm_main_nav{position:fixed!important;top:auto!important;bottom:max(7px,env(safe-area-inset-bottom))!important;left:50%!important;transform:translateX(-50%)!important;width:calc(100vw - 16px)!important;max-width:520px!important;z-index:9999!important;margin:0!important}
+  .st-key-fm_main_nav button{font-size:.60rem!important;padding:.26rem .05rem!important;min-height:52px!important;white-space:normal!important;line-height:1.05!important}
+  .app-home-hero{padding:17px 14px}.app-home-title{font-size:1.78rem}.app-kpi-grid{grid-template-columns:repeat(2,1fr)}.app-kpi-grid.match{grid-template-columns:repeat(4,1fr)}.app-kpi-grid.match .app-kpi{padding:8px 4px}.app-kpi-grid.match .app-kpi small{font-size:.45rem}.app-kpi-grid.match .app-kpi b{font-size:.92rem}
+  .app-role-grid{grid-template-columns:repeat(2,1fr)}.app-player-grid{grid-template-columns:1fr}.app-roster-summary{grid-template-columns:repeat(4,1fr);gap:4px}.app-roster-count{padding:7px 3px}.app-roster-count span{font-size:.49rem}.app-roster-count small{font-size:.46rem}
+  .app-profile-name{font-size:1.18rem}.app-bench-grid{grid-template-columns:1fr 1fr}.fm-gday-grid{grid-template-columns:1fr!important}
+  div[data-testid="stHorizontalBlock"]{gap:.42rem!important}
+}
+@media(min-width:701px){
+  .st-key-fm_main_nav{position:sticky!important;top:76px!important;z-index:940!important;margin:3px 0 8px!important}
+}
+</style>
+""", unsafe_allow_html=True)
+
 def fm_page(title, subtitle):
     st.markdown(
         f'<div class="fm-page"><div class="fm-page-title">{title}</div><div class="fm-page-sub">{subtitle}</div></div>',
@@ -1823,7 +1904,7 @@ cloud_badge = "☁️ OK" if st.session_state.get("_cloud_ok") else "☁️ Clou
 st.markdown(
     f"""<div class="fm-head">
       <img class="fm-logo" src="data:image/png;base64,{FANTAMOSSA_ICON_B64}">
-      <div class="fm-brandbox"><div class="fm-brand">FantaMossa</div><div class="fm-sub">FC Jigen • Asta 2026/27</div></div>
+      <div class="fm-brandbox"><div class="fm-brand">FantaMossa</div><div class="fm-sub">FC Jigen • FANTACHILL 2026/27</div></div>
       <div class="fm-cloud">{cloud_badge}</div>
     </div>""",
     unsafe_allow_html=True
@@ -1831,7 +1912,7 @@ st.markdown(
 
 with st.sidebar:
     st.header("⚙️ FantaMossa")
-    st.caption("Controlli rapidi • v3.36.0")
+    st.caption("Dati, backup e sicurezza • v4.0.0")
     st.button("☁️ SALVA ORA", width="stretch", on_click=_quick_cloud_save, key="sidebar_quick_save")
     st.button("↩️ ANNULLA ULTIMA", width="stretch", on_click=_quick_undo, key="sidebar_quick_undo")
     quick_sidebar_notice=st.session_state.pop("_quick_notice",None)
@@ -1875,13 +1956,13 @@ with st.sidebar:
         if st.button("RESET ASTA",width="stretch",key="sidebar_reset_auction"):
             st.session_state.auction=default_state();persist();st.rerun()
 
+global_fvm = sum(int(x.get("fvm",0) or 0) for x in S.get("roster",[]))
 st.markdown(
     f"""<div class="fm-summary">
       <div class="fm-stat"><div class="fm-stat-label">💰 CREDITI</div><div class="fm-stat-value">{S["credits"]}</div></div>
-      <div class="fm-stat"><div class="fm-stat-label">👕 PRESI</div><div class="fm-stat-value">{len(S["roster"])}/25</div></div>
-      <div class="fm-stat"><div class="fm-stat-label">🔨 MAX</div><div class="fm-stat-value">{max_absolute()}</div></div>
-    </div><div class="fm-mini">Spesi {BUDGET-S["credits"]} • Mercato {market_index():.2f}x</div>""",
-    unsafe_allow_html=True
+      <div class="fm-stat"><div class="fm-stat-label">👕 ROSA</div><div class="fm-stat-value">{len(S["roster"])}/25</div></div>
+      <div class="fm-stat"><div class="fm-stat-label">💎 FVM</div><div class="fm-stat-value">{global_fvm}</div></div>
+    </div>""", unsafe_allow_html=True
 )
 
 
@@ -2097,135 +2178,171 @@ def render_rivali():
         if st.button("💾 SALVA RIVALE",type="primary",width="stretch",key="save_rival_edit"):
             d["credits"]=int(cred);d["slots"]=int(slots);d["roles"]={r:int(vals[r]) for r in SLOTS};persist();st.rerun()
 
-def render_dashboard():
-    """Dashboard centrale post-asta: solo calcoli locali, nessuna chiamata Cloud aggiuntiva."""
-    fm_page("📊 Dashboard FC Jigen", "Quadro centrale post-asta: valore rosa, forza reparti, affari e punti da monitorare.")
+def _app_state_meta(state):
+    s = str(state or "")
+    if "OUT" in s:
+        return "OUT", "bad", "⛔"
+    if "Dubbio" in s:
+        return "Dubbio", "warn", "⚠️"
+    if "Disponibile" in s:
+        return "Disponibile", "ok", "✅"
+    return "Da verificare", "neutral", "⚪"
 
-    roster = list(S.get("roster", []))
+
+def _app_live_pct(name):
+    detail = st.session_state.get("auto_player_status_detail", {}).get(str(name), {})
+    pct = detail.get("percentage")
+    try:
+        if pct is not None:
+            pct = max(0, min(100, int(pct)))
+            return pct
+    except Exception:
+        pass
+    return None
+
+
+def _app_player_card(name, role, team, price, fvm, slot, strength=None):
+    state = st.session_state.get("auto_player_status", {}).get(str(name), "⚪ Da verificare")
+    state_label, state_cls, state_icon = _app_state_meta(state)
+    pct = _app_live_pct(name)
+    pct_txt = "N/D" if pct is None else f"{pct}%"
+    strength_html = "" if strength is None else f'<span class="app-mini">Forza {int(strength)}/100</span>'
+    return (
+        f'<div class="app-player-card">'
+        f'<div class="app-player-top"><div><div class="app-player-name">{html.escape(str(name))}</div>'
+        f'<div class="app-player-team">{html.escape(str(team))} · {html.escape(str(role))}</div></div>'
+        f'<span class="app-chip {state_cls}">{state_icon} {state_label}</span></div>'
+        f'<div class="app-player-stats">'
+        f'<span><b>{int(fvm)}</b><small>FVM</small></span>'
+        f'<span><b>{int(price)}</b><small>Crediti</small></span>'
+        f'<span><b>{html.escape(str(slot))}°</b><small>Slot</small></span>'
+        f'<span><b>{pct_txt}</b><small>Titolarità</small></span>'
+        f'</div>{strength_html}</div>'
+    )
+
+
+def _app_role_icon(role):
+    return {"POR":"🧤", "DIF":"🛡️", "CEN":"⚙️", "ATT":"🎯"}.get(str(role), "👤")
+
+def render_dashboard():
+    """Home mobile-first: leggibile a colpo d'occhio e senza rete."""
+    fm_page("🏠 FC Jigen", "La tua centrale di controllo per FANTACHILL 2026/27.")
+
+    roster = [dict(x) for x in S.get("roster", [])]
     if not roster:
-        st.markdown('<div class="fm-empty">👕 La rosa è ancora vuota. Gli acquisti registrati in Asta compariranno qui automaticamente.</div>', unsafe_allow_html=True)
+        st.markdown('<div class="fm-empty">👕 La rosa è ancora vuota.</div>', unsafe_allow_html=True)
         return
 
-    # DataFrame locale: costruito una sola volta per render.
     rdf = pd.DataFrame(roster).rename(columns={
         "name":"Nome", "role":"Ruolo", "team":"Squadra", "fvm":"FVM", "price":"Prezzo"
     })
-    for col in ["FVM", "Prezzo"]:
-        if col not in rdf.columns:
-            rdf[col] = 0
-        rdf[col] = pd.to_numeric(rdf[col], errors="coerce").fillna(0).astype(int)
+    for col in ["FVM","Prezzo"]:
+        if col not in rdf.columns: rdf[col]=0
+        rdf[col]=pd.to_numeric(rdf[col],errors="coerce").fillna(0).astype(int)
 
-    # Arricchimento con ranking/slot già calcolati nel foglio Valutazioni.
     def _v(name, field, default=""):
         return VALUATION_BY_NAME.get(str(name), {}).get(field, default)
 
-    rdf["RankRuolo"] = rdf["Nome"].map(lambda n: _v(n, "RankRuolo", 999))
-    rdf["TotRuolo"] = rdf["Nome"].map(lambda n: _v(n, "TotRuolo", 1))
-    rdf["Slot"] = rdf["Nome"].map(lambda n: _v(n, "SlotLega10", ""))
-    rdf["Titolarità"] = rdf["Nome"].map(lambda n: _v(n, "Titolarita", "DA VERIFICARE"))
-    rdf["Affidabilità"] = rdf["Nome"].map(lambda n: _v(n, "Affidabilita", "DA VERIFICARE"))
-    rdf["RankRuolo"] = pd.to_numeric(rdf["RankRuolo"], errors="coerce").fillna(999).astype(int)
-    rdf["TotRuolo"] = pd.to_numeric(rdf["TotRuolo"], errors="coerce").fillna(1).clip(lower=1).astype(int)
-
-    # Forza 0-100: percentile inverso nel proprio ruolo. Non inventa titolarità.
-    rdf["Forza"] = ((1 - ((rdf["RankRuolo"] - 1) / rdf["TotRuolo"])) * 100).clip(0,100).round().astype(int)
+    rdf["RankRuolo"] = rdf["Nome"].map(lambda n:_v(n,"RankRuolo",999))
+    rdf["TotRuolo"] = rdf["Nome"].map(lambda n:_v(n,"TotRuolo",1))
+    rdf["Slot"] = rdf["Nome"].map(lambda n:_v(n,"SlotLega10",""))
+    rdf["Titolarità"] = rdf["Nome"].map(lambda n:_v(n,"Titolarita","DA VERIFICARE"))
+    rdf["RankRuolo"] = pd.to_numeric(rdf["RankRuolo"],errors="coerce").fillna(999).astype(int)
+    rdf["TotRuolo"] = pd.to_numeric(rdf["TotRuolo"],errors="coerce").fillna(1).clip(lower=1).astype(int)
+    rdf["Forza"] = ((1-((rdf["RankRuolo"]-1)/rdf["TotRuolo"]))*100).clip(0,100).round().astype(int)
     rdf["ValorePrezzo"] = (rdf["FVM"] / rdf["Prezzo"].clip(lower=1)).round(2)
-    rdf["DeltaMercato"] = rdf["FVM"] - rdf["Prezzo"]
 
     spent = int(rdf["Prezzo"].sum())
     total_fvm = int(rdf["FVM"].sum())
-    credits = int(S.get("credits", 0) or 0)
+    credits = int(S.get("credits",0) or 0)
     avg_strength = int(round(rdf["Forza"].mean())) if len(rdf) else 0
 
-    # KPI principali.
-    k1,k2,k3,k4 = st.columns(4)
-    k1.metric("💎 Valore FVM rosa", total_fvm)
-    k2.metric("💰 Spesa asta", spent)
-    k3.metric("🏦 Crediti residui", credits)
-    k4.metric("⚡ Forza media", f"{avg_strength}/100")
+    # Hero + KPI: stile home di una vera app.
+    auto_status = st.session_state.get("auto_player_status", {})
+    out_count = sum(1 for p in roster if auto_status.get(str(p.get("name",""))) == "⛔ OUT")
+    doubt_count = sum(1 for p in roster if auto_status.get(str(p.get("name",""))) == "⚠️ Dubbio")
+    live_pcts = [_app_live_pct(p.get("name","")) for p in roster]
+    live_known = sum(1 for p in live_pcts if p is not None)
 
-    # Stato reparto: media forza + migliore giocatore + costo.
-    st.markdown("### 🧩 Forza reparti")
-    role_rows=[]
-    role_cards=st.columns(4)
-    for col, role in zip(role_cards, ["POR","DIF","CEN","ATT"]):
-        sub=rdf[rdf["Ruolo"].eq(role)].copy()
-        strength=int(round(sub["Forza"].mean())) if not sub.empty else 0
-        best=sub.sort_values(["Forza","FVM"], ascending=False).iloc[0]["Nome"] if not sub.empty else "—"
-        role_spent=int(sub["Prezzo"].sum()) if not sub.empty else 0
-        col.metric(role, f"{strength}/100", f"{len(sub)}/{SLOTS[role]} • {role_spent} cr")
-        role_rows.append({"Ruolo":role,"Forza":strength,"Migliore":best,"Spesa":role_spent})
-
-    strongest=max(role_rows, key=lambda x:x["Forza"])
-    weakest=min(role_rows, key=lambda x:x["Forza"])
-    st.caption(f"🏆 Reparto più forte: {strongest['Ruolo']} ({strongest['Forza']}/100) • ⚠️ Da monitorare: {weakest['Ruolo']} ({weakest['Forza']}/100)")
-
-    st.markdown("### ⭐ Pilastri della rosa")
-    top = rdf.sort_values(["Forza","FVM"], ascending=False).head(5)
-    st.dataframe(
-        top[["Nome","Ruolo","Squadra","FVM","Prezzo","Slot","Forza"]],
-        hide_index=True,
-        width="stretch"
+    st.markdown(
+        f"""<div class="app-home-hero">
+          <div class="app-home-kicker">FANTACHILL · 2026/27</div>
+          <div class="app-home-title">FC Jigen</div>
+          <div class="app-home-sub">Rosa completa · {len(roster)}/25 giocatori</div>
+          <div class="app-home-pills">
+            <span>🛡️ Modificatore: linea a 4</span><span>📡 Titolarità live {live_known}/25</span>
+          </div>
+        </div>
+        <div class="app-kpi-grid">
+          <div class="app-kpi"><small>💎 FVM ROSA</small><b>{total_fvm}</b></div>
+          <div class="app-kpi"><small>⚡ FORZA</small><b>{avg_strength}<em>/100</em></b></div>
+          <div class="app-kpi"><small>🏦 CREDITI</small><b>{credits}</b></div>
+          <div class="app-kpi"><small>💰 SPESI</small><b>{spent}</b></div>
+        </div>""", unsafe_allow_html=True
     )
 
-    # Affari: evita che il semplice acquisto a 1 domini tutto; combina FVM, forza e prezzo.
-    rdf["AffareScore"] = (rdf["Forza"] * 0.55 + rdf["FVM"].clip(upper=150) * 0.25 + (100 / rdf["Prezzo"].clip(lower=1)).clip(upper=40) * 0.20).round(1)
-    bargains = rdf.sort_values(["AffareScore","ValorePrezzo"], ascending=False).head(5)
-    st.markdown("### 💚 Migliori affari")
-    st.dataframe(
-        bargains[["Nome","Ruolo","Prezzo","FVM","Slot","Forza","ValorePrezzo"]].rename(columns={"ValorePrezzo":"FVM/credito"}),
-        hide_index=True,
-        width="stretch"
-    )
-
-    # Acquisti da rivedere: prezzo alto rispetto al valore/ranking; non etichetta come errore assoluto.
-    watch = rdf.copy()
-    watch["PressionePrezzo"] = (watch["Prezzo"] / watch["FVM"].clip(lower=1)).round(2)
-    watch = watch.sort_values(["PressionePrezzo","Prezzo"], ascending=False).head(5)
-    st.markdown("### 👀 Acquisti da monitorare")
-    st.caption("Non significa 'acquisto sbagliato': evidenzia solo chi è stato pagato molto rispetto al FVM corrente.")
-    st.dataframe(
-        watch[["Nome","Ruolo","Prezzo","FVM","Slot","Forza","PressionePrezzo"]].rename(columns={"PressionePrezzo":"Prezzo/FVM"}),
-        hide_index=True,
-        width="stretch"
-    )
-
-    # Alert qualitativi locali.
-    st.markdown("### 🚦 Check rosa")
-    alerts=[]
-    low = rdf[rdf["Forza"] < 35].sort_values("Forza")
-    if not low.empty:
-        alerts.append("⚠️ Profili con ranking basso nel ruolo: " + ", ".join(low["Nome"].head(6).tolist()))
-    unverified = rdf[rdf["Titolarità"].astype(str).str.upper().eq("DA VERIFICARE")]
-    if not unverified.empty:
-        alerts.append(f"🔎 Titolarità ancora da verificare per {len(unverified)} giocatori: il sistema non la inventa.")
-    if credits > 0:
-        alerts.append(f"🏦 Hai {credits} crediti residui: utili per mercato di riparazione/scambi secondo regolamento.")
-    if not alerts:
-        st.success("✅ Nessun alert strutturale rilevante sulla rosa.")
+    if out_count or doubt_count:
+        st.markdown(
+            f'<div class="app-action warn"><b>🚦 Attenzione rosa</b><span>{out_count} OUT · {doubt_count} dubbi registrati. Controlla Giornata prima di schierare.</span></div>',
+            unsafe_allow_html=True
+        )
     else:
-        for a in alerts:
-            st.info(a)
-
-    # Dettaglio rosa completo, ma chiuso di default per tenere la dashboard leggera su iPhone.
-    with st.expander("👕 ROSA COMPLETA E VALUTAZIONI", expanded=False):
-        detail = rdf[["Nome","Ruolo","Squadra","Prezzo","FVM","Slot","Forza","Titolarità","Affidabilità"]].copy()
-        detail = detail.sort_values(["Ruolo","Forza"], ascending=[True,False])
-        st.dataframe(detail, hide_index=True, width="stretch")
-        st.download_button(
-            "⬇️ ESPORTA ROSA CSV",
-            detail.to_csv(index=False).encode(),
-            file_name="rosa_fc_jigen_post_asta.csv",
-            mime="text/csv",
-            width="stretch"
+        st.markdown(
+            '<div class="app-action ok"><b>✅ Situazione pulita</b><span>Nessun OUT o dubbio registrato nello stato operativo corrente.</span></div>',
+            unsafe_allow_html=True
         )
 
+    st.markdown('<div class="app-section-head"><span>Reparti</span><small>forza relativa nel listone</small></div>', unsafe_allow_html=True)
+    role_cards=[]
+    for role in ["POR","DIF","CEN","ATT"]:
+        sub=rdf[rdf["Ruolo"].eq(role)].copy()
+        strength=int(round(sub["Forza"].mean())) if not sub.empty else 0
+        best=sub.sort_values(["Forza","FVM"],ascending=False).iloc[0]["Nome"] if not sub.empty else "—"
+        cost=int(sub["Prezzo"].sum()) if not sub.empty else 0
+        icon=_app_role_icon(role)
+        role_cards.append(
+            f'<div class="app-role-card"><div class="app-role-top"><span>{icon} {role}</span><b>{strength}/100</b></div>'
+            f'<div class="app-bar"><i style="width:{strength}%"></i></div>'
+            f'<div class="app-role-meta">Top: <b>{html.escape(str(best))}</b><br>{len(sub)}/{SLOTS[role]} giocatori · {cost} cr</div></div>'
+        )
+    st.markdown('<div class="app-role-grid">'+''.join(role_cards)+'</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="app-section-head"><span>Pilastri</span><small>i 5 profili più forti della rosa</small></div>', unsafe_allow_html=True)
+    top=rdf.sort_values(["Forza","FVM"],ascending=False).head(5)
+    top_cards=[]
+    for i,(_,r) in enumerate(top.iterrows(),1):
+        top_cards.append(
+            f'<div class="app-rank-row"><span class="app-rank-n">{i}</span><div><b>{html.escape(str(r.Nome))}</b>'
+            f'<small>{html.escape(str(r.Squadra))} · {r.Ruolo} · {r.Slot}° slot</small></div>'
+            f'<strong>{int(r.Forza)}</strong></div>'
+        )
+    st.markdown('<div class="app-rank-list">'+''.join(top_cards)+'</div>', unsafe_allow_html=True)
+
+    rdf["AffareScore"]=(rdf["Forza"]*.55 + rdf["FVM"].clip(upper=150)*.25 + (100/rdf["Prezzo"].clip(lower=1)).clip(upper=40)*.20).round(1)
+    bargains=rdf.sort_values(["AffareScore","ValorePrezzo"],ascending=False).head(3)
+    watch=rdf.copy(); watch["PressionePrezzo"]=(watch["Prezzo"]/watch["FVM"].clip(lower=1)).round(2)
+    watch=watch.sort_values(["PressionePrezzo","Prezzo"],ascending=False).head(3)
+
+    c1,c2=st.columns(2)
+    with c1:
+        st.markdown("#### 💚 Affari")
+        for _,r in bargains.iterrows():
+            st.markdown(f"**{r.Nome}** · {int(r.Prezzo)} cr  \nFVM {int(r.FVM)} · forza {int(r.Forza)}/100")
+    with c2:
+        st.markdown("#### 👀 Monitorare")
+        for _,r in watch.iterrows():
+            st.markdown(f"**{r.Nome}** · {int(r.Prezzo)} cr  \nFVM {int(r.FVM)} · {r.Slot}° slot")
+
+    with st.expander("📋 ROSA COMPLETA · DATI TECNICI", expanded=False):
+        detail=rdf[["Nome","Ruolo","Squadra","Prezzo","FVM","Slot","Forza","Titolarità"]].copy()
+        st.dataframe(detail,hide_index=True,width="stretch")
+        st.download_button("⬇️ ESPORTA ROSA CSV",detail.to_csv(index=False).encode(),file_name="rosa_fc_jigen.csv",mime="text/csv",width="stretch")
 
 @st.cache_data(ttl=600, show_spinner=False)
 def _fetch_public_page_text(url):
     """Scarica una pagina pubblica con timeout breve e restituisce solo testo normalizzato."""
     try:
-        req = Request(url, headers={"User-Agent":"Mozilla/5.0 FantaMossa/3.34.3"})
+        req = Request(url, headers={"User-Agent":"Mozilla/5.0 FantaMossa/4.0.0"})
         with urlopen(req, timeout=3.0) as resp:
             raw = resp.read(900000).decode("utf-8", "ignore")
         raw = re.sub(r"(?is)<script.*?</script>|<style.*?</style>", " ", raw)
@@ -2459,7 +2576,7 @@ def fetch_player_news(player_name, team_name, limit=5, max_age_days=14):
     cutoff = now - timedelta(days=max_age_days)
 
     try:
-        req = Request(url, headers={"User-Agent":"Mozilla/5.0 FantaMossa/3.36.0"})
+        req = Request(url, headers={"User-Agent":"Mozilla/5.0 FantaMossa/4.0.0"})
         with urlopen(req, timeout=2.8) as resp:
             data = resp.read()
 
@@ -2600,16 +2717,34 @@ def _title_weight(info):
     return 3
 
 
-def _roster_row(player):
+def _make_player_lookups():
+    """Costruisce una sola volta per chiamata gli indici del listone usati dalla formazione."""
     ap = all_players()
-    m = ap[(ap.Nome.astype(str)==str(player.get("name",""))) & (ap.Squadra.astype(str)==str(player.get("team","")))]
-    if m.empty:
-        m = ap[ap.Nome.astype(str)==str(player.get("name",""))]
-    return None if m.empty else m.iloc[0]
+    exact = {}
+    by_name = {}
+    for _, row in ap.iterrows():
+        name = str(row.Nome)
+        team = str(row.Squadra)
+        exact[(name, team)] = row
+        by_name.setdefault(name, row)
+    return exact, by_name
 
 
-def _lineup_score(player):
-    row = _roster_row(player)
+def _row_from_lookup(player, lookups=None):
+    if lookups is None:
+        lookups = _make_player_lookups()
+    exact, by_name = lookups
+    name = str(player.get("name", ""))
+    team = str(player.get("team", ""))
+    return exact.get((name, team), by_name.get(name))
+
+
+def _roster_row(player):
+    return _row_from_lookup(player)
+
+
+def _lineup_score(player, lookups=None):
+    row = _row_from_lookup(player, lookups)
     fvm = float(player.get("fvm",0) or 0)
     if row is not None:
         info = player_intel(row)
@@ -2629,23 +2764,24 @@ def _lineup_score(player):
 
 
 def recommended_lineups():
-    # PRIORITÀ REGOLAMENTO FC JIGEN: il modificatore difesa richiede 4 difensori.
-    # Per questo i moduli consigliati standard sono esclusivamente a linea difensiva a 4.
+    """Tre moduli a 4 difensori. Il listone viene indicizzato una sola volta per render."""
     formations = {
         "4-3-3": (4,3,3),
         "4-4-2": (4,4,2),
         "4-5-1": (4,5,1),
     }
-    roster=[dict(x) for x in S.get("roster",[])]
-    grouped={r:[] for r in ["POR","DIF","CEN","ATT"]}
+    roster = [dict(x) for x in S.get("roster", [])]
+    grouped = {r:[] for r in ["POR","DIF","CEN","ATT"]}
+    lookups = _make_player_lookups()
     for p in roster:
-        score, info, slot, rank, total, state = _lineup_score(p)
-        grouped.setdefault(p.get("role"),[]).append((score,p,info,slot,rank,total,state))
+        item = _lineup_score(p, lookups)
+        grouped.setdefault(p.get("role"), []).append((item[0], p, item[1], item[2], item[3], item[4], item[5]))
     for r in grouped:
         grouped[r].sort(key=lambda x:x[0], reverse=True)
-    results=[]
+
+    results = []
     for form,(nd,nc,na) in formations.items():
-        need={"POR":1,"DIF":nd,"CEN":nc,"ATT":na}
+        need = {"POR":1,"DIF":nd,"CEN":nc,"ATT":na}
         if any(len([x for x in grouped[r] if x[6] != "⛔ OUT"]) < n for r,n in need.items()):
             continue
         starters=[]; total_score=0
@@ -2656,102 +2792,89 @@ def recommended_lineups():
         unverified=sum(1 for x in starters if "VERIFIC" not in str(x[2].get("confidence","")).upper())
         results.append({
             "formation": form,
-            "score": round(total_score, 1),
+            "score": round(total_score,1),
             "starters": starters,
             "doubts": doubts,
             "unverified": unverified,
-            "modifier_active": nd == 4,
+            "modifier_active": True,
         })
     return sorted(results,key=lambda x:x["score"],reverse=True)[:3]
 
-
 def render_rosa_status():
-    fm_page(
-        "🩺 Stato giocatori",
-        "Stato operativo rigoroso, titolarità e notizie recenti dei tuoi 25 giocatori."
-    )
-    roster = [dict(x) for x in S.get("roster", [])]
+    fm_page("🩺 Stato giocatori", "Stato operativo e titolarità del singolo giocatore, aggiornati automaticamente.")
+    roster=[dict(x) for x in S.get("roster",[])]
     if not roster:
-        st.info("Rosa vuota.")
-        return
+        st.info("Rosa vuota."); return
 
-    names = [p["name"] for p in roster]
-    pick = st.selectbox("Giocatore", names, key="rosa_status_player")
-    p = next(x for x in roster if x["name"] == pick)
-    row = _roster_row(p)
+    names=[p["name"] for p in roster]
+    pick=st.selectbox("Giocatore",names,key="rosa_status_player")
+    p=next(x for x in roster if x["name"]==pick)
+    row=_roster_row(p)
+    info=player_intel(row) if row is not None else {"titolarita":"DA VERIFICARE","confidence":"DA VERIFICARE","summary":"Dati non disponibili."}
+    _,_,slot,rank,total,_=_lineup_score(p)
 
-    info = player_intel(row) if row is not None else {
-        "titolarita":"DA VERIFICARE", "confidence":"DA VERIFICARE", "summary":"Dati non disponibili."
-    }
-    score, _, slot, rank, total, _ = _lineup_score(p)
+    # Automatico: il fetch è cache 10 minuti e le due pagine operative sono a loro volta in cache.
+    with st.spinner("Verifico stato e probabili…"):
+        op=fetch_fantacalcio_operational_status(pick,p.get("team",""))
+    st.session_state.setdefault("auto_player_status",{})[pick]=op.get("status","⚪ Da verificare")
+    st.session_state.setdefault("auto_player_status_detail",{})[pick]=op
 
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Slot", f"{slot}°")
-    c2.metric("Rank ruolo", f"#{rank}/{total}")
-    c3.metric("Gerarchia base", str(info.get("titolarita", "DA VERIFICARE")))
-    st.caption(f"Affidabilità gerarchia base: {info.get('confidence','DA VERIFICARE')} • {info.get('summary','')}")
-
-    st.markdown("### 🩺 Stato operativo")
-    st.caption(
-        "Lo stato NON viene dedotto dalle news. Usa Fantacalcio Infortunati/Indisponibili e Probabili formazioni. "
-        "Se non c'è conferma sufficiente resta Da verificare."
+    status=op.get("status","⚪ Da verificare")
+    label,cls,icon=_app_state_meta(status)
+    pct=op.get("percentage")
+    pct_txt="N/D" if pct is None else f"{pct}%"
+    st.markdown(
+        f"""<div class="app-profile-card">
+          <div class="app-profile-top"><div><div class="app-profile-name">{html.escape(str(pick))}</div>
+          <div class="app-profile-team">{html.escape(str(p.get("team","")))} · {html.escape(str(p.get("role","")))}</div></div>
+          <span class="app-chip {cls}">{icon} {label}</span></div>
+          <div class="app-profile-grid">
+            <span><b>{slot}°</b><small>Slot</small></span>
+            <span><b>#{rank}/{total}</b><small>Rank ruolo</small></span>
+            <span><b>{pct_txt}</b><small>Titolarità live</small></span>
+          </div>
+        </div>""", unsafe_allow_html=True
     )
 
-    if st.button("🔎 VERIFICA STATO OPERATIVO", width="stretch", key=f"op_{_norm_search(pick)}"):
-        with st.spinner("Controllo fonti operative…"):
-            op = fetch_fantacalcio_operational_status(pick, p.get("team", ""))
-        st.session_state.setdefault("auto_player_status", {})[pick] = op["status"]
-        st.session_state.setdefault("auto_player_status_detail", {})[pick] = op
+    conf=op.get("confidence","")
+    reason=op.get("reason","")
+    if status=="✅ Disponibile": st.success(f"✅ Disponibile · affidabilità {conf}")
+    elif status=="⚠️ Dubbio": st.warning(f"⚠️ Dubbio · affidabilità {conf}")
+    elif status=="⛔ OUT": st.error(f"⛔ OUT · affidabilità {conf}")
+    else: st.info(f"⚪ Da verificare · {conf}")
+    if reason: st.caption(reason)
+    st.markdown(f"**Titolarità giornata:** {op.get('titolarita_live','DA VERIFICARE')}")
 
-    op = st.session_state.setdefault("auto_player_status_detail", {}).get(pick)
-    if op is None:
-        st.info("⚪ Da verificare • premi “Verifica stato operativo”.")
-    else:
-        status = op.get("status", "⚪ Da verificare")
-        conf = op.get("confidence", "")
-        if status == "✅ Disponibile":
-            st.success(f"{status} • affidabilità {conf}")
-        elif status == "⚠️ Dubbio":
-            st.warning(f"{status} • affidabilità {conf}")
-        elif status == "⛔ OUT":
-            st.error(f"{status} • affidabilità {conf}")
-        else:
-            st.info(f"{status} • {conf}")
-        st.caption(op.get("reason", ""))
-        st.markdown(f"**Titolarità giornata:** {op.get('titolarita_live','DA VERIFICARE')}")
-        if op.get("percentage") is not None:
-            st.caption(f"Percentuale rilevata nelle probabili: {op['percentage']}%")
-        for label, url in op.get("sources", []):
-            st.markdown(f"[{label}]({url})")
-        if op.get("errors"):
-            st.caption("Una fonte non ha risposto: classificazione mantenuta conservativa.")
+    if op.get("sources"):
+        source_links=[]
+        for label_src,url in op.get("sources",[]):
+            source_links.append(f"[{label_src}]({url})")
+        st.caption("Fonti operative: " + " · ".join(source_links))
+    if op.get("errors"):
+        st.caption("⚠️ Una fonte non ha risposto: lo stato resta volutamente conservativo.")
 
-    st.markdown("### 📰 Ultime notizie sul giocatore")
-    st.caption("Solo articoli degli ultimi 14 giorni. Le news sono informative e NON modificano lo stato operativo.")
+    st.markdown('<div class="app-section-head"><span>Ultime notizie</span><small>solo ultimi 14 giorni e solo sul giocatore</small></div>', unsafe_allow_html=True)
+    if st.button("🔄 AGGIORNA NOTIZIE",width="stretch",key=f"news_{_norm_search(pick)}"):
+        with st.spinner("Cerco le notizie più recenti…"):
+            news,err=fetch_player_news(pick,p.get("team",""),5,14)
+        st.session_state["news_result"]={"player":pick,"items":news,"err":err}
 
-    if st.button("🔄 AGGIORNA NOTIZIE", width="stretch", key=f"news_{_norm_search(pick)}"):
-        with st.spinner("Cerco solo notizie recenti sul giocatore…"):
-            news, err = fetch_player_news(pick, p.get("team", ""), 5, 14)
-        st.session_state["news_result"] = {"player": pick, "items": news, "err": err}
-
-    nr = st.session_state.get("news_result", {})
-    if nr.get("player") == pick:
+    nr=st.session_state.get("news_result",{})
+    if nr.get("player")==pick:
         if nr.get("err"):
-            st.warning("Le notizie non sono disponibili in questo momento.")
+            st.warning("Notizie non disponibili in questo momento.")
         elif not nr.get("items"):
-            st.info("Nessuna notizia recente specifica sul giocatore negli ultimi 14 giorni.")
+            st.info("Nessuna notizia recente e specifica sul giocatore negli ultimi 14 giorni.")
         else:
+            cards=[]
             for n in nr["items"]:
-                title = str(n.get("title", "")).replace("[", "［").replace("]", "］")
-                link = n.get("link", "")
-                source = n.get("source", "Fonte")
-                date_label = n.get("pubLabel", "")
-                if link:
-                    st.markdown(f"**[{title}]({link})**")
-                else:
-                    st.markdown(f"**{title}**")
-                st.caption(f"{source} • {date_label}")
-
+                title=html.escape(str(n.get("title","")))
+                link=html.escape(str(n.get("link","")),quote=True)
+                source=html.escape(str(n.get("source","Fonte")))
+                date_label=html.escape(str(n.get("pubLabel","")))
+                title_html=f'<a href="{link}" target="_blank">{title}</a>' if link else title
+                cards.append(f'<div class="app-news-card"><b>{title_html}</b><small>{source} · {date_label}</small></div>')
+            st.markdown('<div class="app-news-list">'+''.join(cards)+'</div>',unsafe_allow_html=True)
 
 def _pitch_player_name(name):
     """Nome compatto per la lavagnetta mobile."""
@@ -3071,179 +3194,142 @@ def _render_result_pitch(res):
 
 
 def _bench_candidates_for(starters):
-    starter_names = {str(x[1].get("name", "")) for x in starters}
-    bench = {"POR": [], "DIF": [], "CEN": [], "ATT": []}
-    for p in [dict(x) for x in S.get("roster", [])]:
-        if str(p.get("name", "")) in starter_names:
+    starter_names={str(x[1].get("name","")) for x in starters}
+    bench={"POR":[],"DIF":[],"CEN":[],"ATT":[]}
+    lookups=_make_player_lookups()
+    for p in [dict(x) for x in S.get("roster",[])]:
+        if str(p.get("name","")) in starter_names:
             continue
-        score, info, slot, rank, total, state = _lineup_score(p)
-        if state == "⛔ OUT":
+        score,info,slot,rank,total,state=_lineup_score(p,lookups)
+        if state=="⛔ OUT":
             continue
-        pct, estimated, source = _starter_probability(p, info)
-        bench.setdefault(str(p.get("role", "")), []).append(
-            (score, p, info, slot, state, pct, estimated)
-        )
+        pct,estimated,source=_starter_probability(p,info)
+        bench.setdefault(str(p.get("role","")),[]).append((score,p,info,slot,state,pct,estimated))
     for role in bench:
-        bench[role].sort(
-            key=lambda x: (
-                -1 if x[5] is None else x[5],
-                x[0]
-            ),
-            reverse=True
-        )
+        bench[role].sort(key=lambda x:(-1 if x[5] is None else x[5],x[0]),reverse=True)
     return bench
 
-
 def render_matchday_center():
-    """Match Center: schermata operativa pre-giornata, senza news e senza richieste multiple."""
-    fm_page(
-        "📅 Giornata",
-        "La schermata da aprire prima di consegnare la formazione: modulo, titolarità, modificatore e alert."
-    )
+    """Match Center mobile-first: selezione modulo, campo, alert e panchina."""
+    fm_page("📅 Giornata", "La schermata da aprire prima di consegnare la formazione.")
 
-    # Una sola richiesta batch, poi cache 10 minuti.
     with st.spinner("Aggiorno le probabili della tua rosa…"):
-        err = preload_roster_lineup_live()
-
+        err=preload_roster_lineup_live()
     if not err:
-        st.session_state["lineup_last_ok"] = datetime.now().strftime("%d/%m %H:%M")
+        st.session_state["lineup_last_ok"]=datetime.now().strftime("%d/%m %H:%M")
+    last_ok=st.session_state.get("lineup_last_ok","N/D")
 
-    last_ok = st.session_state.get("lineup_last_ok", "N/D")
-    if err:
-        st.warning(f"⚠️ Probabili non raggiungibili ora • ultimo aggiornamento riuscito: {last_ok}")
-    else:
-        st.caption(f"✅ Probabili aggiornate • {last_ok} • cache 10 minuti")
-
-    results = recommended_lineups()
+    results=recommended_lineups()
     if not results:
-        st.error("Non riesco a costruire un XI valido con 4 difensori. Controlla subito gli indisponibili in Rosa → Stato.")
+        st.error("Non riesco a costruire un XI valido con 4 difensori. Controlla gli indisponibili in Rosa → Stato.")
         return
 
-    best = results[0]
-    starters = best["starters"]
-    avg_pct, live_count, est_count, unknown = _lineup_avg_probability(starters)
+    best=results[0]
+    options=[r["formation"] for r in results]
+    key="matchday_formation_pick_v400"
+    if st.session_state.get(key) not in options:
+        st.session_state[key]=options[0]
+    selected=st.segmented_control("Modulo",options,key=key,label_visibility="collapsed")
+    if selected not in options: selected=options[0]
+    result_map={r["formation"]:r for r in results}
+    res=result_map[selected]
+    starters=res["starters"]
+    avg_pct,live_count,est_count,unknown=_lineup_avg_probability(starters)
 
-    roster = [dict(x) for x in S.get("roster", [])]
-    auto_status = st.session_state.get("auto_player_status", {})
-    out_count = sum(1 for p in roster if auto_status.get(str(p.get("name",""))) == "⛔ OUT")
-    doubt_count = sum(1 for p in roster if auto_status.get(str(p.get("name",""))) == "⚠️ Dubbio")
+    roster=[dict(x) for x in S.get("roster",[])]
+    auto_status=st.session_state.get("auto_player_status",{})
+    out_count=sum(1 for p in roster if auto_status.get(str(p.get("name","")))=="⛔ OUT")
+    doubt_count=sum(1 for p in roster if auto_status.get(str(p.get("name","")))=="⚠️ Dubbio")
+    known_ratio=(11-unknown)/11
+    avg_component=(avg_pct or 0)/100 if avg_pct is not None else 0
+    readiness=max(0,min(100,round(100*(.55*known_ratio+.45*avg_component))))
 
-    # Indice preparazione: non è un voto fantacalcio, misura quanto l'XI è "verificato".
-    known_ratio = (11 - unknown) / 11
-    avg_component = (avg_pct or 0) / 100 if avg_pct is not None else 0
-    readiness = round(100 * (0.55 * known_ratio + 0.45 * avg_component))
-    readiness = max(0, min(100, readiness))
+    freshness = f"Aggiornato {last_ok}" if not err else f"Ultimo dato {last_ok}"
+    avg_txt="N/D" if avg_pct is None else f"{avg_pct}%"
+    st.markdown(
+        f"""<div class="app-match-hero">
+          <div><small>MODULO SELEZIONATO</small><b>{html.escape(selected)}</b><span>🛡️ Modificatore difesa attivo</span></div>
+          <div class="app-readiness"><b>{readiness}</b><small>/100<br>preparazione</small></div>
+        </div>
+        <div class="app-kpi-grid match">
+          <div class="app-kpi"><small>📈 TITOLARITÀ XI</small><b>{avg_txt}</b></div>
+          <div class="app-kpi"><small>📡 LIVE</small><b>{live_count}<em>/11</em></b></div>
+          <div class="app-kpi"><small>⚠️ DUBBI</small><b>{res["doubts"]}</b></div>
+          <div class="app-kpi"><small>⚪ N/D</small><b>{unknown}</b></div>
+        </div>
+        <div class="app-freshness">{html.escape(freshness)} · cache 10 min</div>""", unsafe_allow_html=True
+    )
 
-    k1, k2, k3, k4 = st.columns(4)
-    k1.metric("🏟️ Modulo migliore", best["formation"])
-    k2.metric("📈 Titolarità media XI", "N/D" if avg_pct is None else f"{avg_pct}%")
-    k3.metric("🛡️ Modificatore", "ATTIVO" if best.get("modifier_active") else "NO")
-    k4.metric("✅ Preparazione", f"{readiness}/100")
-
-    # Alert rapido.
-    alerts = []
-    if best["doubts"]:
-        alerts.append(f"⚠️ {best['doubts']} dubbio/i nell'XI")
-    if unknown:
-        alerts.append(f"⚪ {unknown} titolarità N/D nell'XI")
-    if out_count:
-        alerts.append(f"⛔ {out_count} OUT in rosa")
-    if doubt_count:
-        alerts.append(f"🟠 {doubt_count} dubbi totali in rosa")
-    if not alerts:
-        st.success("✅ XI pulito: nessun alert operativo rilevato.")
+    alerts=[]
+    if res["doubts"]: alerts.append(f"{res['doubts']} dubbio/i nell'XI")
+    if unknown: alerts.append(f"{unknown} titolarità N/D")
+    if out_count: alerts.append(f"{out_count} OUT in rosa")
+    if doubt_count: alerts.append(f"{doubt_count} dubbi totali")
+    if alerts:
+        st.warning("⚠️ " + " · ".join(alerts))
     else:
-        st.warning(" • ".join(alerts))
+        st.success("✅ XI pulito: nessun alert operativo rilevante.")
 
     _matchday_pitch_css()
-
-    # Confronto 3 moduli.
-    st.markdown("### 🧠 Confronto moduli")
-    cards = []
-    for i, res in enumerate(results):
-        ap, lc, ec, un = _lineup_avg_probability(res["starters"])
-        pct_txt = "N/D" if ap is None else f"{ap}%"
-        best_cls = " best" if i == 0 else ""
+    st.markdown('<div class="app-section-head"><span>Confronto moduli</span><small>tutti con 4 difensori</small></div>',unsafe_allow_html=True)
+    cards=[]
+    for i,r in enumerate(results):
+        ap,lc,ec,un=_lineup_avg_probability(r["starters"])
+        pct_txt="N/D" if ap is None else f"{ap}%"
+        cls=" best" if i==0 else ""
+        badge=" · MIGLIORE" if i==0 else ""
         cards.append(
-            f'<div class="fm-gday-card{best_cls}">'
-            f'<div class="fm-gday-title">{html.escape(res["formation"])}</div>'
-            f'<div class="fm-gday-score">{pct_txt} titolarità media</div>'
-            f'<div class="fm-gday-meta">Indice XI {res["score"]:.0f} • '
-            f'{res["doubts"]} dubbi • {un} N/D<br>'
-            f'🛡️ Modificatore {"attivo" if res.get("modifier_active") else "non attivo"}</div>'
-            f'</div>'
+            f'<div class="fm-gday-card{cls}"><div class="fm-gday-title">{html.escape(r["formation"])}{badge}</div>'
+            f'<div class="fm-gday-score">{pct_txt}</div><div class="fm-gday-meta">Titolarità media · {r["doubts"]} dubbi · {un} N/D<br>🛡️ Modificatore attivo</div></div>'
         )
-    st.markdown('<div class="fm-gday-grid">' + "".join(cards) + '</div>', unsafe_allow_html=True)
+    st.markdown('<div class="fm-gday-grid">'+''.join(cards)+'</div>',unsafe_allow_html=True)
 
-    st.markdown(f"### ⭐ XI consigliato · {best['formation']}")
-    _render_result_pitch(best)
+    st.markdown(f"### ⭐ Formazione · {selected}")
+    _render_result_pitch(res)
 
-    # Giocatori dell'XI sotto soglia / non verificati + migliore alternativa dello stesso ruolo.
-    st.markdown("### 🚦 Decisioni da controllare")
-    bench = _bench_candidates_for(starters)
-    decision_rows = []
-    for score, p, info, slot, rank, total, state in starters:
-        pct, estimated, source = _starter_probability(p, info)
-        risky = state == "⚠️ Dubbio" or pct is None or (pct is not None and pct < 60)
-        if not risky:
-            continue
-
-        role = str(p.get("role", ""))
-        alternatives = bench.get(role, [])
-        alt = alternatives[0] if alternatives else None
-
-        if pct is None:
-            pct_txt = "N/D"
-        else:
-            pct_txt = ("~" if estimated else "") + f"{pct}%"
-
-        alt_txt = "Nessuna alternativa disponibile"
+    bench=_bench_candidates_for(starters)
+    st.markdown('<div class="app-section-head"><span>Decisioni da controllare</span><small>solo i casi che richiedono attenzione</small></div>',unsafe_allow_html=True)
+    decision_rows=[]
+    for score,p,info,slot,rank,total,state in starters:
+        pct,estimated,source=_starter_probability(p,info)
+        risky=state=="⚠️ Dubbio" or pct is None or (pct is not None and pct<60)
+        if not risky: continue
+        role=str(p.get("role","")); alternatives=bench.get(role,[]); alt=alternatives[0] if alternatives else None
+        pct_txt="N/D" if pct is None else (("~" if estimated else "")+f"{pct}%")
+        alt_txt="Nessuna alternativa disponibile"
         if alt:
-            _, ap, ainfo, aslot, astate, apct, aest = alt
-            apct_txt = "N/D" if apct is None else (("~" if aest else "") + f"{apct}%")
-            alt_txt = f"Alternativa: {ap.get('name','')} · tit. {apct_txt} · {aslot}° slot"
-
-        decision_rows.append((p.get("name",""), role, pct_txt, state, alt_txt))
-
+            _,ap,ainfo,aslot,astate,apct,aest=alt
+            apct_txt="N/D" if apct is None else (("~" if aest else "")+f"{apct}%")
+            alt_txt=f"Alternativa: {ap.get('name','')} · {apct_txt} · {aslot}° slot"
+        decision_rows.append((p.get("name",""),role,pct_txt,state,alt_txt))
     if not decision_rows:
         st.success("✅ Nessun titolare sotto la soglia di attenzione.")
     else:
-        for name, role, pct_txt, state, alt_txt in decision_rows:
-            st.markdown(
-                f'<div class="fm-alert-card"><div class="fm-alert-name">{html.escape(str(name))} · {html.escape(role)}</div>'
-                f'<div class="fm-alert-sub">Titolarità {html.escape(pct_txt)} · {html.escape(str(state))}<br>'
-                f'{html.escape(alt_txt)}</div></div>',
-                unsafe_allow_html=True
-            )
+        cards=[]
+        for name,role,pct_txt,state,alt_txt in decision_rows:
+            cards.append(f'<div class="app-decision"><b>{html.escape(str(name))}</b><span>{html.escape(role)} · Tit. {html.escape(pct_txt)} · {html.escape(str(state))}</span><small>{html.escape(alt_txt)}</small></div>')
+        st.markdown('<div class="app-decision-list">'+''.join(cards)+'</div>',unsafe_allow_html=True)
 
-    # Panchina operativa: ordine consigliato, separato per reparto.
-    st.markdown("### 🪑 Panchina consigliata")
-    st.caption("Ordine interno al reparto: prima probabilità di voto/titolarità, poi qualità del profilo.")
-    role_labels = {"POR":"🧤 POR", "DIF":"🛡️ DIF", "CEN":"⚙️ CEN", "ATT":"🎯 ATT"}
-    cols = st.columns(4)
-    for col, role in zip(cols, ["POR","DIF","CEN","ATT"]):
-        with col:
-            st.markdown(f"**{role_labels[role]}**")
-            players = bench.get(role, [])
-            if not players:
-                st.caption("—")
-                continue
-            for idx, (_, p, info, slot, state, pct, estimated) in enumerate(players, start=1):
-                pct_txt = "N/D" if pct is None else (("~" if estimated else "") + f"{pct}%")
-                st.markdown(f"{idx}. **{p.get('name','')}**  \n{pct_txt} · {slot}° slot")
-
-    st.caption(
-        "Indice Preparazione = copertura dei dati di titolarità + probabilità media dell'XI. "
-        "Non è un punteggio ufficiale del Fantacalcio."
-    )
+    st.markdown('<div class="app-section-head"><span>Panchina</span><small>ordine consigliato per reparto</small></div>',unsafe_allow_html=True)
+    role_labels={"POR":"🧤 Portieri","DIF":"🛡️ Difensori","CEN":"⚙️ Centrocampisti","ATT":"🎯 Attaccanti"}
+    bench_cards=[]
+    for role in ["POR","DIF","CEN","ATT"]:
+        rows=[]
+        for idx,(_,p,info,slot,state,pct,estimated) in enumerate(bench.get(role,[]),1):
+            pct_txt="N/D" if pct is None else (("~" if estimated else "")+f"{pct}%")
+            rows.append(f'<div class="app-bench-row"><i>{idx}</i><span><b>{html.escape(str(p.get("name","")))}</b><small>{pct_txt} · {slot}° slot</small></span></div>')
+        if not rows: rows=['<div class="app-bench-empty">—</div>']
+        bench_cards.append(f'<div class="app-bench-card"><h4>{role_labels[role]}</h4>{"".join(rows)}</div>')
+    st.markdown('<div class="app-bench-grid">'+''.join(bench_cards)+'</div>',unsafe_allow_html=True)
+    st.caption("Preparazione = copertura dei dati di titolarità + probabilità media dell'XI. Non è un voto ufficiale Fantacalcio.")
 
 def render_rosa():
-    """Rosa separata dalla Dashboard: elenco completo e riepilogo per ruolo."""
-    fm_page("👕 Rosa FC Jigen", "La squadra completa, separata dalla Dashboard centrale.")
-    roster=list(S.get("roster", []))
+    """Rosa a schede: mobile-first, con stato e titolarità già visibili."""
+    fm_page("👕 Rosa FC Jigen", "I 25 giocatori in una vista compatta da app.")
+    roster=[dict(x) for x in S.get("roster",[])]
     if not roster:
-        st.markdown('<div class="fm-empty">👕 La rosa è ancora vuota.</div>', unsafe_allow_html=True)
-        return
+        st.markdown('<div class="fm-empty">👕 La rosa è ancora vuota.</div>',unsafe_allow_html=True); return
+
     rdf=pd.DataFrame(roster).rename(columns={"name":"Nome","role":"Ruolo","team":"Squadra","fvm":"FVM","price":"Prezzo"})
     for col in ["FVM","Prezzo"]:
         if col not in rdf.columns: rdf[col]=0
@@ -3251,22 +3337,36 @@ def render_rosa():
     def _v(name,field,default=""):
         return VALUATION_BY_NAME.get(str(name),{}).get(field,default)
     rdf["Slot"]=rdf["Nome"].map(lambda n:_v(n,"SlotLega10",""))
-    rdf["Titolarità"]=rdf["Nome"].map(lambda n:_v(n,"Titolarita","DA VERIFICARE"))
-    rdf["Affidabilità"]=rdf["Nome"].map(lambda n:_v(n,"Affidabilita","DA VERIFICARE"))
-    rdf["RankRuolo"]=rdf["Nome"].map(lambda n:_v(n,"RankRuolo",999))
-    rdf["TotRuolo"]=rdf["Nome"].map(lambda n:_v(n,"TotRuolo",1))
-    rdf["RankRuolo"]=pd.to_numeric(rdf["RankRuolo"],errors="coerce").fillna(999).astype(int)
-    rdf["TotRuolo"]=pd.to_numeric(rdf["TotRuolo"],errors="coerce").fillna(1).clip(lower=1).astype(int)
+    rdf["RankRuolo"]=pd.to_numeric(rdf["Nome"].map(lambda n:_v(n,"RankRuolo",999)),errors="coerce").fillna(999).astype(int)
+    rdf["TotRuolo"]=pd.to_numeric(rdf["Nome"].map(lambda n:_v(n,"TotRuolo",1)),errors="coerce").fillna(1).clip(lower=1).astype(int)
     rdf["Forza"]=((1-((rdf["RankRuolo"]-1)/rdf["TotRuolo"]))*100).clip(0,100).round().astype(int)
-    c1,c2,c3,c4=st.columns(4)
-    for col,role in zip((c1,c2,c3,c4),("POR","DIF","CEN","ATT")):
+
+    summary=[]
+    for role in ["POR","DIF","CEN","ATT"]:
         sub=rdf[rdf["Ruolo"].eq(role)]
-        col.metric(role,f"{len(sub)}/{SLOTS[role]}",f"{int(sub['Prezzo'].sum()) if not sub.empty else 0} cr")
+        summary.append(f'<div class="app-roster-count"><span>{_app_role_icon(role)} {role}</span><b>{len(sub)}/{SLOTS[role]}</b><small>{int(sub["Prezzo"].sum()) if not sub.empty else 0} cr</small></div>')
+    st.markdown('<div class="app-roster-summary">'+''.join(summary)+'</div>',unsafe_allow_html=True)
+
+    filters=["Tutti","POR","DIF","CEN","ATT"]
+    role_filter=st.segmented_control("Reparto",filters,default="Tutti",key="rosa_role_filter_v400",label_visibility="collapsed")
+    if role_filter not in filters: role_filter="Tutti"
+    roles=["POR","DIF","CEN","ATT"] if role_filter=="Tutti" else [role_filter]
+
     role_order={"POR":0,"DIF":1,"CEN":2,"ATT":3}
     rdf["_ord"]=rdf["Ruolo"].map(role_order).fillna(9)
     rdf=rdf.sort_values(["_ord","Forza"],ascending=[True,False]).drop(columns=["_ord"])
-    st.dataframe(rdf[["Nome","Ruolo","Squadra","Prezzo","FVM","Slot","Forza","Titolarità","Affidabilità"]],hide_index=True,width="stretch")
-    st.download_button("⬇️ ESPORTA ROSA CSV",rdf.to_csv(index=False).encode(),file_name="rosa_fc_jigen_post_asta.csv",mime="text/csv",width="stretch")
+
+    for role in roles:
+        sub=rdf[rdf["Ruolo"].eq(role)]
+        st.markdown(f'<div class="app-section-head"><span>{_app_role_icon(role)} {role}</span><small>{len(sub)} giocatori</small></div>',unsafe_allow_html=True)
+        cards=[]
+        for _,r in sub.iterrows():
+            cards.append(_app_player_card(r.Nome,r.Ruolo,r.Squadra,r.Prezzo,r.FVM,r.Slot,r.Forza))
+        st.markdown('<div class="app-player-grid">'+''.join(cards)+'</div>',unsafe_allow_html=True)
+
+    with st.expander("📋 TABELLA TECNICA / ESPORTA",expanded=False):
+        st.dataframe(rdf[["Nome","Ruolo","Squadra","Prezzo","FVM","Slot","Forza"]],hide_index=True,width="stretch")
+        st.download_button("⬇️ ESPORTA ROSA CSV",rdf.to_csv(index=False).encode(),file_name="rosa_fc_jigen.csv",mime="text/csv",width="stretch")
 
 def render_piano():
     fm_page("🎯 Piano Asta", "Budget per ruolo, target, alternative e gestione degli arrivi dell’ultimo minuto.")
@@ -3594,7 +3694,7 @@ def render_storico():
 
 
 
-# v3.36.0 — Quattro mondi principali: Dashboard, Rosa, Giornata, Asta.
+# v4.0.0 — Navigazione principale app-like: Dashboard, Rosa, Giornata, Asta.
 main_area = st.segmented_control(
     "Mondo principale", ["📊 Dashboard", "👕 Rosa", "📅 Giornata", "🔥 Asta"],
     default="📊 Dashboard", key="fm_main_nav", label_visibility="collapsed"
