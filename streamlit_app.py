@@ -1,4 +1,4 @@
-# VERSIONE v3.35.0 FANTAMOSSA - TACTICAL LINEUP PITCH
+# VERSIONE v3.35.3 FANTAMOSSA - AUTO LINEUP PERCENTAGES
 # FC Jigen - file corretto per GitHub
 
 import re
@@ -1831,7 +1831,7 @@ st.markdown(
 
 with st.sidebar:
     st.header("⚙️ FantaMossa")
-    st.caption("Controlli rapidi • v3.35.0")
+    st.caption("Controlli rapidi • v3.35.3")
     st.button("☁️ SALVA ORA", width="stretch", on_click=_quick_cloud_save, key="sidebar_quick_save")
     st.button("↩️ ANNULLA ULTIMA", width="stretch", on_click=_quick_undo, key="sidebar_quick_undo")
     quick_sidebar_notice=st.session_state.pop("_quick_notice",None)
@@ -2247,10 +2247,19 @@ def _player_search_terms(player_name):
     return toks
 
 
-def _find_player_windows(page_text, player_name, radius=260):
+def _operational_norm(s):
+    """Normalizzazione per fonti operative: preserva % per leggere le probabilità."""
+    s = unicodedata.normalize("NFKD", str(s or ""))
+    s = "".join(ch for ch in s if not unicodedata.combining(ch))
+    s = s.lower().strip()
+    s = re.sub(r"[^a-z0-9%]+", " ", s)
+    return " ".join(s.split())
+
+
+def _find_player_windows(page_text, player_name, radius=220):
     if not page_text:
         return []
-    low = _norm_search(page_text)
+    low = _operational_norm(page_text)
     terms = _player_search_terms(player_name)
     if not terms:
         return []
@@ -2262,11 +2271,10 @@ def _find_player_windows(page_text, player_name, radius=260):
         if i < 0:
             break
         w = low[max(0, i-radius):min(len(low), i+radius)]
-        # Se ci sono più token significativi, pretendili nello stesso contesto.
         if all(t in w for t in terms[1:]):
             windows.append(w)
         start = i + len(primary)
-        if len(windows) >= 8:
+        if len(windows) >= 6:
             break
     return windows
 
@@ -2352,6 +2360,81 @@ def fetch_fantacalcio_operational_status(player_name, team_name):
     return result
 
 
+@st.cache_data(ttl=600, show_spinner=False)
+def fetch_roster_lineup_live(roster_signature):
+    """Una sola lettura delle probabili per tutta la rosa: % immediate in Formazione."""
+    probable_url = "https://www.fantacalcio.it/probabili-formazioni-serie-a"
+    probable_text, err = _fetch_public_page_text(probable_url)
+    results = {}
+    if err or not probable_text:
+        return results, err or "Fonte probabili non disponibile"
+
+    for player_name, team_name in roster_signature:
+        windows = _find_player_windows(probable_text, player_name, radius=180)
+        if not windows:
+            results[player_name] = {
+                "percentage": None,
+                "titolarita_live": "N/D",
+                "source": probable_url,
+            }
+            continue
+
+        # Cerca percentuali solo molto vicino al nome. Se ce ne sono più di una,
+        # prende la prima finestra che contiene un valore plausibile e il valore massimo
+        # della stessa finestra (tipico ballottaggio espresso con più percentuali).
+        pct = None
+        for w in windows:
+            vals = [int(x) for x in re.findall(r"(?:^|\\s)(\\d{1,3})\\s*%", w) if 0 <= int(x) <= 100]
+            if vals:
+                pct = max(vals)
+                break
+
+        joined = " ".join(windows)
+        if pct is not None:
+            if pct >= 70:
+                label = f"PROBABILE TITOLARE {pct}%"
+            elif pct >= 40:
+                label = f"BALLOTTAGGIO {pct}%"
+            else:
+                label = f"PANCHINA / CHANCE {pct}%"
+        elif "titolare" in joined and "panchina" not in joined:
+            label = "PROBABILE TITOLARE"
+        elif "ballottaggio" in joined:
+            label = "BALLOTTAGGIO"
+        elif "panchina" in joined:
+            label = "PANCHINA PROBABILE"
+        else:
+            label = "PRESENTE NELLE PROBABILI"
+
+        results[player_name] = {
+            "percentage": pct,
+            "titolarita_live": label,
+            "source": probable_url,
+        }
+
+    return results, ""
+
+
+def preload_roster_lineup_live():
+    """Aggiorna Session State con le % live in un unico batch."""
+    roster = [dict(x) for x in S.get("roster", [])]
+    signature = tuple((str(p.get("name", "")), str(p.get("team", ""))) for p in roster)
+    if not signature:
+        return ""
+    live_map, err = fetch_roster_lineup_live(signature)
+    auto_detail = st.session_state.setdefault("auto_player_status_detail", {})
+    for p in roster:
+        name = str(p.get("name", ""))
+        live = live_map.get(name, {})
+        existing = dict(auto_detail.get(name, {}))
+        # Non sovrascrive lo stato medico; aggiorna solo la titolarità live.
+        existing["percentage"] = live.get("percentage")
+        existing["titolarita_live"] = live.get("titolarita_live", "N/D")
+        existing["lineup_source"] = live.get("source", "")
+        auto_detail[name] = existing
+    return err
+
+
 @st.cache_data(ttl=900, show_spinner=False)
 def fetch_player_news(player_name, team_name, limit=5, max_age_days=14):
     """News rigorose: solo giocatore selezionato, solo articoli recenti, timeout breve."""
@@ -2376,7 +2459,7 @@ def fetch_player_news(player_name, team_name, limit=5, max_age_days=14):
     cutoff = now - timedelta(days=max_age_days)
 
     try:
-        req = Request(url, headers={"User-Agent":"Mozilla/5.0 FantaMossa/3.34.3.2"})
+        req = Request(url, headers={"User-Agent":"Mozilla/5.0 FantaMossa/3.35.3"})
         with urlopen(req, timeout=2.8) as resp:
             data = resp.read()
 
@@ -2546,9 +2629,12 @@ def _lineup_score(player):
 
 
 def recommended_lineups():
+    # PRIORITÀ REGOLAMENTO FC JIGEN: il modificatore difesa richiede 4 difensori.
+    # Per questo i moduli consigliati standard sono esclusivamente a linea difensiva a 4.
     formations = {
-        "3-4-3": (3,4,3), "3-5-2": (3,5,2), "4-3-3": (4,3,3),
-        "4-4-2": (4,4,2), "4-5-1": (4,5,1), "5-3-2": (5,3,2), "5-4-1": (5,4,1),
+        "4-3-3": (4,3,3),
+        "4-4-2": (4,4,2),
+        "4-5-1": (4,5,1),
     }
     roster=[dict(x) for x in S.get("roster",[])]
     grouped={r:[] for r in ["POR","DIF","CEN","ATT"]}
@@ -2568,7 +2654,14 @@ def recommended_lineups():
             starters.extend(picks); total_score += sum(x[0] for x in picks)
         doubts=sum(1 for x in starters if x[6]=="⚠️ Dubbio")
         unverified=sum(1 for x in starters if "VERIFIC" not in str(x[2].get("confidence","")).upper())
-        results.append({"formation":form,"score":round(total_score,1),"starters":starters,"doubts":doubts,"unverified":unverified})
+        results.append({
+            "formation": form,
+            "score": round(total_score, 1),
+            "starters": starters,
+            "doubts": doubts,
+            "unverified": unverified,
+            "modifier_active": nd == 4,
+        })
     return sorted(results,key=lambda x:x["score"],reverse=True)[:3]
 
 
@@ -2684,16 +2777,60 @@ def _pitch_status_class(state):
     return "unknown"
 
 
+def _starter_probability(player, info=None):
+    """Percentuale titolarità: live se disponibile, altrimenti stima marcata ~ solo da gerarchia verificata."""
+    name = str(player.get("name", ""))
+    detail = st.session_state.get("auto_player_status_detail", {}).get(name, {})
+    pct = detail.get("percentage")
+    try:
+        if pct is not None:
+            pct = max(0, min(100, int(pct)))
+            return pct, False, "LIVE"
+    except Exception:
+        pass
+
+    if info is None:
+        row = _roster_row(player)
+        info = player_intel(row) if row is not None else {}
+
+    confidence = str(info.get("confidence", "")).upper()
+    tit = str(info.get("titolarita", "")).upper()
+    # Solo gerarchie esplicitamente verificate: la tilde indica che NON è una percentuale live.
+    if "VERIFIC" in confidence:
+        mapping = {
+            "ALTISSIMA": 95,
+            "ALTA": 85,
+            "MEDIO-ALTA": 70,
+            "MEDIA": 55,
+            "BASSA": 30,
+        }
+        for key, value in mapping.items():
+            if key in tit:
+                return value, True, "GERARCHIA"
+    return None, False, "N/D"
+
+
+def _probability_label(player, info=None):
+    pct, estimated, source = _starter_probability(player, info)
+    if pct is None:
+        return "Tit. N/D", "nd"
+    prefix = "~" if estimated else ""
+    cls = "high" if pct >= 75 else ("mid" if pct >= 50 else "low")
+    return f"Tit. {prefix}{pct}%", cls
+
+
 def _render_pitch_line(players, css_class):
     chips = []
     for score, p, info, slot, rank, total, state in players:
         safe_name = html.escape(_pitch_player_name(p.get("name", "")))
         safe_team = html.escape(str(p.get("team", "")))
         state_class = _pitch_status_class(state)
+        prob_label, prob_class = _probability_label(p, info)
         chips.append(
             f'<div class="fm-pitch-player {state_class}">'
             f'<div class="fm-shirt">●</div>'
             f'<div class="fm-pitch-name">{safe_name}</div>'
+            f'<div class="fm-pitch-prob {prob_class}">{html.escape(prob_label)}</div>'
             f'<div class="fm-pitch-team">{safe_team}</div>'
             f'</div>'
         )
@@ -2703,11 +2840,20 @@ def _render_pitch_line(players, css_class):
 def render_lineup_advisor():
     fm_page(
         "🧩 Formazione giornata",
-        "Scegli uno dei 3 moduli consigliati e visualizza direttamente gli undici sul campo."
+        "I 3 moduli consigliati mantengono sempre 4 difensori per attivare il modificatore."
     )
+
+    # Appena entri: una sola lettura delle probabili aggiorna le % di tutti i 25 giocatori.
+    with st.spinner("Aggiorno le titolarità della giornata…"):
+        lineup_err = preload_roster_lineup_live()
+    if lineup_err:
+        st.caption("⚠️ Probabili momentaneamente non raggiungibili: mostro solo dati già verificati / N/D.")
+    else:
+        st.caption("✅ Titolarità giornata aggiornata automaticamente • cache 10 min")
+
     results = recommended_lineups()
     if not results:
-        st.warning("Non ci sono abbastanza giocatori disponibili per costruire una formazione valida. Controlla gli OUT.")
+        st.warning("Non ci sono abbastanza giocatori disponibili per costruire una formazione con 4 difensori e modificatore attivo. Controlla gli OUT/dubbi in difesa.")
         return
 
     result_map = {r["formation"]: r for r in results}
@@ -2728,6 +2874,10 @@ def render_lineup_advisor():
     m1.metric("Modulo", res["formation"])
     m2.metric("Indice XI", f'{res["score"]:.0f}')
     m3.metric("Dubbi", res["doubts"])
+    if res.get("modifier_active"):
+        st.success("🛡️ Modificatore difesa ATTIVO — linea a 4")
+    else:
+        st.warning("⚠️ Modificatore difesa NON attivo")
 
     starters = res["starters"]
     by_role = {"POR": [], "DIF": [], "CEN": [], "ATT": []}
@@ -2773,11 +2923,12 @@ def render_lineup_advisor():
     .fm-pitch-player.doubt .fm-shirt{background:#f3b64b}.fm-pitch-player.out .fm-shirt{background:#e75c55}.fm-pitch-player.unknown .fm-shirt{background:#d8ddd9}
     .fm-pitch-name{font-size:.72rem;font-weight:950;line-height:1.05;white-space:normal;word-break:break-word}
     .fm-pitch-team{font-size:.54rem;opacity:.86;margin-top:2px}
+.fm-pitch-prob{display:inline-block;margin-top:3px;padding:2px 5px;border-radius:999px;font-size:.54rem;font-weight:950;background:rgba(0,0,0,.28);color:#fff}.fm-pitch-prob.high{background:#176d47}.fm-pitch-prob.mid{background:#9a6b10}.fm-pitch-prob.low{background:#9b342f}.fm-pitch-prob.nd{background:#59625d}
     .fm-pitch-legend{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;padding:8px 10px;background:#0d3f30;color:#e8eee9;font-size:.68rem}
     @media(max-width:700px){
       .fm-pitch{min-height:565px;padding:18px 4px 16px}.fm-pitch-line{min-height:96px;gap:1px}
       .fm-pitch-player{width:62px}.fm-shirt{width:35px;height:35px;font-size:.95rem}
-      .fm-pitch-name{font-size:.63rem}.fm-pitch-team{font-size:.48rem}
+      .fm-pitch-name{font-size:.63rem}.fm-pitch-prob{font-size:.48rem;padding:2px 4px}.fm-pitch-team{font-size:.48rem}
       .fm-pitch:after{width:76px;height:76px}.fm-box-top,.fm-box-bottom{height:62px}
     }
     </style>
@@ -2801,26 +2952,40 @@ def render_lineup_advisor():
     if res["unverified"]:
         st.caption(f"⚪ {res['unverified']} gerarchie/titolarità ancora da verificare.")
 
-    # Panchina: tutti i non titolari, ordinati con lo stesso punteggio del motore formazione.
+    # Panchina: tutti i non titolari, divisi per reparto e con titolarità %.
     starter_names = {str(x[1].get("name", "")) for x in starters}
-    bench = []
+    bench_by_role = {"POR": [], "DIF": [], "CEN": [], "ATT": []}
     for p in [dict(x) for x in S.get("roster", [])]:
         if str(p.get("name", "")) in starter_names:
             continue
         score, info, slot, rank, total, state = _lineup_score(p)
         if state != "⛔ OUT":
-            bench.append((score, p, info, slot, state))
-    bench.sort(key=lambda x: x[0], reverse=True)
+            bench_by_role.setdefault(str(p.get("role", "")), []).append((score, p, info, slot, state))
+    for role in bench_by_role:
+        bench_by_role[role].sort(key=lambda x: x[0], reverse=True)
 
-    with st.expander("🪑 Panchina consigliata", expanded=False):
-        if not bench:
-            st.caption("Nessun altro giocatore disponibile.")
-        else:
-            for _, p, info, slot, state in bench[:10]:
+    with st.expander("🪑 Panchina per reparto", expanded=True):
+        role_labels = {"POR":"🧤 Portieri", "DIF":"🛡️ Difensori", "CEN":"⚙️ Centrocampisti", "ATT":"🎯 Attaccanti"}
+        any_bench = False
+        for role in ["POR", "DIF", "CEN", "ATT"]:
+            players = bench_by_role.get(role, [])
+            if not players:
+                continue
+            any_bench = True
+            st.markdown(f"#### {role_labels[role]}")
+            for _, p, info, slot, state in players:
+                pct, estimated, src = _starter_probability(p, info)
+                pct_txt = "N/D" if pct is None else (("~" if estimated else "") + f"{pct}%")
+                status_txt = state if state else "⚪ Da verificare"
                 st.markdown(
-                    f"**{p.get('role','')} • {p.get('name','')}** — {p.get('team','')}  \n"
-                    f"{state} • {slot}° slot"
+                    f"**{p.get('name','')}** · {p.get('team','')}  \n"
+                    f"Titolarità **{pct_txt}** · {status_txt} · {slot}° slot"
                 )
+        if not any_bench:
+            st.caption("Nessun altro giocatore disponibile.")
+
+    st.caption("% senza ~ = rilevata dalle probabili. % con ~ = stima da gerarchia verificata. N/D = dato non sufficientemente verificato.")
+
 
 def render_rosa():
     """Rosa separata dalla Dashboard: elenco completo e riepilogo per ruolo."""
@@ -3179,7 +3344,7 @@ def render_storico():
 
 
 
-# v3.35.0 — Tre mondi principali separati: Dashboard, Rosa, Asta.
+# v3.35.3 — Tre mondi principali separati: Dashboard, Rosa, Asta.
 main_area = st.segmented_control(
     "Mondo principale", ["📊 Dashboard", "👕 Rosa", "🔥 Asta"],
     default="📊 Dashboard", key="fm_main_nav", label_visibility="collapsed"
