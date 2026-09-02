@@ -1,4 +1,4 @@
-# VERSIONE v4.1.1 FANTAMOSSA - STORICO TIMELINE REDESIGN
+# VERSIONE v4.1.2 FANTAMOSSA - PITCH MOBILE POLISH
 # FC Jigen - file corretto per GitHub
 
 import re
@@ -3371,14 +3371,17 @@ def _probability_label(player, info=None):
 
 def _render_pitch_line(players, css_class):
     chips = []
+    role_icon = {"POR":"🧤","DIF":"🛡️","CEN":"⚙️","ATT":"🎯"}
     for score, p, info, slot, rank, total, state in players:
         safe_name = html.escape(_pitch_player_name(p.get("name", "")))
         safe_team = html.escape(str(p.get("team", "")))
         state_class = _pitch_status_class(state)
         prob_label, prob_class = _probability_label(p, info)
+        role = str(p.get("role",""))
+        icon = role_icon.get(role, "●")
         chips.append(
             f'<div class="fm-pitch-player {state_class}">'
-            f'<div class="fm-shirt">●</div>'
+            f'<div class="fm-shirt">{icon}</div>'
             f'<div class="fm-pitch-name">{safe_name}</div>'
             f'<div class="fm-pitch-prob {prob_class}">{html.escape(prob_label)}</div>'
             f'<div class="fm-pitch-team">{safe_team}</div>'
@@ -3497,6 +3500,30 @@ def render_lineup_advisor():
     )
     st.markdown(pitch_html, unsafe_allow_html=True)
 
+    st.markdown("""
+    <style>
+    /* v4.1.2 — stesso look mobile raffinato anche in Rosa > Formazione */
+    @media(max-width:700px){
+      .fm-pitch{padding-bottom:68px!important}
+      .fm-pitch-player{width:61px!important}
+      .fm-shirt{width:29px!important;height:29px!important;font-size:.70rem!important}
+      .fm-pitch-name{
+        display:inline-block!important;
+        max-width:60px!important;
+        white-space:nowrap!important;
+        overflow:hidden!important;
+        text-overflow:ellipsis!important;
+        background:rgba(5,32,24,.66)!important;
+        border-radius:8px!important;
+        padding:3px 4px!important;
+        font-size:.59rem!important
+      }
+      .fm-pitch-prob{font-size:.46rem!important;padding:2px 4px!important}
+      .fm-pitch-team{font-size:.45rem!important}
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
     if res["doubts"]:
         st.warning(f"⚠️ {res['doubts']} giocatore/i in dubbio nell’XI selezionato.")
     if res["unverified"]:
@@ -3565,36 +3592,161 @@ def _lineup_avg_probability(starters):
 def _matchday_pitch_css():
     st.markdown("""
     <style>
-    .fm-gday-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:.45rem 0 .75rem}
-    .fm-gday-card{background:#0e3329;border:1px solid rgba(217,184,95,.30);border-radius:15px;padding:10px}
-    .fm-gday-card.best{border:2px solid #d9b85f;background:#123d31}
+    .fm-gday-grid{
+        display:grid;grid-template-columns:repeat(3,1fr);
+        gap:7px;margin:.45rem 0 .75rem
+    }
+    .fm-gday-card{
+        background:#0e3329;border:1px solid rgba(217,184,95,.30);
+        border-radius:15px;padding:10px
+    }
+    .fm-gday-card.best{
+        border:2px solid #d9b85f;background:#123d31
+    }
     .fm-gday-title{color:#f5e2a4;font-size:1.03rem;font-weight:950}
     .fm-gday-meta{color:#d6e0db;font-size:.68rem;line-height:1.35;margin-top:4px}
     .fm-gday-score{color:#fff;font-size:1.22rem;font-weight:950;margin-top:5px}
-    .fm-alert-card{background:#10382d;border:1px solid rgba(217,184,95,.28);border-radius:14px;padding:9px 10px;margin:5px 0}
-    .fm-alert-name{font-weight:950;color:#f5e2a4}.fm-alert-sub{font-size:.72rem;color:#d6e0db;margin-top:2px}
-    .fm-pitch-wrap{margin:.55rem 0 .8rem;border:2px solid rgba(245,226,164,.75);border-radius:22px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.18);background:#176b45}
-    .fm-pitch{position:relative;min-height:620px;padding:22px 10px 20px;display:flex;flex-direction:column;justify-content:space-between;background:linear-gradient(rgba(255,255,255,.08),rgba(255,255,255,.08)),repeating-linear-gradient(0deg,#176b45 0,#176b45 78px,#1b744b 78px,#1b744b 156px)}
-    .fm-pitch:before{content:"";position:absolute;inset:12px;border:2px solid rgba(255,255,255,.78);border-radius:4px;pointer-events:none}
-    .fm-pitch:after{content:"";position:absolute;left:50%;top:50%;width:92px;height:92px;border:2px solid rgba(255,255,255,.78);border-radius:50%;transform:translate(-50%,-50%);pointer-events:none}
-    .fm-halfway{position:absolute;left:12px;right:12px;top:50%;border-top:2px solid rgba(255,255,255,.78)}
-    .fm-box-top,.fm-box-bottom{position:absolute;left:25%;right:25%;height:74px;border:2px solid rgba(255,255,255,.78)}
-    .fm-box-top{top:12px;border-top:0}.fm-box-bottom{bottom:12px;border-bottom:0}
-    .fm-pitch-line{position:relative;z-index:3;display:flex;justify-content:space-evenly;align-items:center;gap:4px;width:100%;min-height:108px}
-    .fm-pitch-player{width:78px;text-align:center;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.75)}
-    .fm-shirt{width:42px;height:42px;display:flex;align-items:center;justify-content:center;margin:0 auto 4px;border-radius:50%;background:#f5e2a4;color:#0b2d24;border:2px solid #fff;font-size:1.1rem;box-shadow:0 3px 8px rgba(0,0,0,.28)}
-    .fm-pitch-player.doubt .fm-shirt{background:#f3b64b}.fm-pitch-player.out .fm-shirt{background:#e75c55}.fm-pitch-player.unknown .fm-shirt{background:#d8ddd9}
-    .fm-pitch-name{font-size:.72rem;font-weight:950;line-height:1.05;white-space:normal;word-break:break-word}
-    .fm-pitch-team{font-size:.54rem;opacity:.86;margin-top:2px}
-    .fm-pitch-prob{display:inline-block;margin-top:3px;padding:2px 5px;border-radius:999px;font-size:.54rem;font-weight:950;background:rgba(0,0,0,.28);color:#fff}
-    .fm-pitch-prob.high{background:#176d47}.fm-pitch-prob.mid{background:#9a6b10}.fm-pitch-prob.low{background:#9b342f}.fm-pitch-prob.nd{background:#59625d}
-    .fm-pitch-legend{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;padding:8px 10px;background:#0d3f30;color:#e8eee9;font-size:.68rem}
+    .fm-alert-card{
+        background:#10382d;border:1px solid rgba(217,184,95,.28);
+        border-radius:14px;padding:9px 10px;margin:5px 0
+    }
+    .fm-alert-name{font-weight:950;color:#f5e2a4}
+    .fm-alert-sub{font-size:.72rem;color:#d6e0db;margin-top:2px}
+
+    .fm-pitch-header{
+        display:flex;align-items:center;justify-content:space-between;
+        gap:8px;margin:.45rem 2px .4rem;
+    }
+    .fm-pitch-chip{
+        display:inline-flex;align-items:center;gap:5px;
+        padding:6px 10px;border-radius:999px;
+        background:#123a2f;border:1px solid rgba(217,184,95,.32);
+        color:#f5e2a4;font-size:.68rem;font-weight:900
+    }
+    .fm-pitch-chip.ok{
+        background:rgba(23,109,71,.28);
+        color:#dff6e7;border-color:rgba(77,190,126,.28)
+    }
+
+    .fm-pitch-wrap{
+        margin:.35rem 0 1.1rem;
+        border:2px solid rgba(245,226,164,.72);
+        border-radius:22px;overflow:hidden;
+        box-shadow:0 10px 26px rgba(0,0,0,.20);
+        background:#176b45
+    }
+    .fm-pitch{
+        position:relative;min-height:610px;
+        padding:26px 8px 28px;
+        display:flex;flex-direction:column;justify-content:space-between;
+        background:
+            radial-gradient(circle at 50% 50%,rgba(255,255,255,.025),transparent 35%),
+            repeating-linear-gradient(0deg,#1b754c 0,#1b754c 76px,#227d53 76px,#227d53 152px)
+    }
+    .fm-pitch:before{
+        content:"";position:absolute;inset:12px;
+        border:2px solid rgba(255,255,255,.72);
+        border-radius:4px;pointer-events:none
+    }
+    .fm-pitch:after{
+        content:"";position:absolute;left:50%;top:50%;
+        width:88px;height:88px;border:2px solid rgba(255,255,255,.68);
+        border-radius:50%;transform:translate(-50%,-50%);pointer-events:none
+    }
+    .fm-halfway{
+        position:absolute;left:12px;right:12px;top:50%;
+        border-top:2px solid rgba(255,255,255,.68)
+    }
+    .fm-box-top,.fm-box-bottom{
+        position:absolute;left:26%;right:26%;height:70px;
+        border:2px solid rgba(255,255,255,.68)
+    }
+    .fm-box-top{top:12px;border-top:0}
+    .fm-box-bottom{bottom:12px;border-bottom:0}
+
+    .fm-pitch-line{
+        position:relative;z-index:3;
+        display:flex;justify-content:space-evenly;align-items:center;
+        gap:4px;width:100%;min-height:104px
+    }
+    .fm-pitch-player{
+        width:74px;text-align:center;color:#fff;
+        text-shadow:0 1px 2px rgba(0,0,0,.7)
+    }
+    .fm-shirt{
+        width:34px;height:34px;
+        display:flex;align-items:center;justify-content:center;
+        margin:0 auto 5px;border-radius:50%;
+        background:#f5e2a4;color:#0b2d24;
+        border:2px solid rgba(255,255,255,.92);
+        font-size:.83rem;box-shadow:0 3px 8px rgba(0,0,0,.26)
+    }
+    .fm-pitch-player.doubt .fm-shirt{background:#f3b64b}
+    .fm-pitch-player.out .fm-shirt{background:#e75c55}
+    .fm-pitch-player.unknown .fm-shirt{background:#d8ddd9}
+
+    .fm-pitch-name{
+        display:inline-block;max-width:100%;
+        padding:3px 6px;border-radius:8px;
+        background:rgba(5,32,24,.66);
+        border:1px solid rgba(255,255,255,.08);
+        font-size:.69rem;font-weight:950;line-height:1.05;
+        white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+    }
+    .fm-pitch-prob{
+        display:inline-block;margin-top:4px;
+        padding:3px 6px;border-radius:999px;
+        font-size:.54rem;font-weight:950;
+        background:rgba(0,0,0,.30);color:#fff;
+        box-shadow:0 2px 5px rgba(0,0,0,.12)
+    }
+    .fm-pitch-prob.high{background:#176d47}
+    .fm-pitch-prob.mid{background:#9a6b10}
+    .fm-pitch-prob.low{background:#9b342f}
+    .fm-pitch-prob.nd{background:#59625d}
+    .fm-pitch-team{
+        font-size:.51rem;opacity:.84;margin-top:3px;
+        white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+    }
+    .fm-pitch-legend{
+        display:flex;gap:9px;justify-content:center;flex-wrap:wrap;
+        padding:9px 10px;background:#0d3f30;
+        color:#e8eee9;font-size:.63rem
+    }
+
     @media(max-width:700px){
-      .fm-gday-grid{grid-template-columns:1fr}.fm-gday-card{padding:8px 10px}
-      .fm-pitch{min-height:555px;padding:18px 4px 16px}.fm-pitch-line{min-height:94px;gap:1px}
-      .fm-pitch-player{width:62px}.fm-shirt{width:35px;height:35px;font-size:.95rem}
-      .fm-pitch-name{font-size:.63rem}.fm-pitch-prob{font-size:.48rem;padding:2px 4px}.fm-pitch-team{font-size:.48rem}
-      .fm-pitch:after{width:76px;height:76px}.fm-box-top,.fm-box-bottom{height:62px}
+        .fm-gday-grid{grid-template-columns:1fr}
+        .fm-gday-card{padding:8px 10px}
+        .fm-pitch-header{margin-top:.2rem}
+        .fm-pitch-chip{font-size:.60rem;padding:5px 8px}
+
+        .fm-pitch{
+            min-height:600px;
+            padding:24px 2px 68px; /* keep GK clear of fixed bottom nav */
+        }
+        .fm-pitch-line{
+            min-height:93px;gap:0
+        }
+        .fm-pitch-player{width:61px}
+        .fm-shirt{
+            width:29px;height:29px;
+            font-size:.70rem;margin-bottom:4px
+        }
+        .fm-pitch-name{
+            font-size:.59rem;padding:3px 4px;
+            max-width:60px
+        }
+        .fm-pitch-prob{
+            font-size:.46rem;padding:2px 4px;margin-top:3px
+        }
+        .fm-pitch-team{
+            font-size:.45rem;max-width:58px;margin-left:auto;margin-right:auto
+        }
+        .fm-pitch:after{width:72px;height:72px}
+        .fm-box-top,.fm-box-bottom{height:58px}
+        .fm-pitch-legend{
+            padding-bottom:22px;font-size:.57rem
+        }
     }
     </style>
     """, unsafe_allow_html=True)
@@ -3606,7 +3758,15 @@ def _render_result_pitch(res):
     for item in starters:
         by_role.setdefault(item[1].get("role"), []).append(item)
 
+    modifier_txt = "🛡️ Modificatore ON" if res.get("modifier_active") else "⚠️ Modificatore OFF"
+    header_html = (
+        '<div class="fm-pitch-header">'
+        f'<span class="fm-pitch-chip">📋 {html.escape(str(res.get("formation","")))}</span>'
+        f'<span class="fm-pitch-chip {"ok" if res.get("modifier_active") else ""}">{modifier_txt}</span>'
+        '</div>'
+    )
     pitch_html = (
+        header_html +
         '<div class="fm-pitch-wrap"><div class="fm-pitch">'
         '<div class="fm-halfway"></div><div class="fm-box-top"></div><div class="fm-box-bottom"></div>'
         + _render_pitch_line(by_role["ATT"], "attack")
