@@ -1,4 +1,4 @@
-# VERSIONE v4.0.6 FANTAMOSSA - MOBILE UI FIX PACK
+# VERSIONE v4.1.1 FANTAMOSSA - STORICO TIMELINE REDESIGN
 # FC Jigen - file corretto per GitHub
 
 import re
@@ -2231,20 +2231,172 @@ def render_asta():
         st.markdown('<div class="fm-empty">🔎 Scegli un giocatore per vedere priorità, prezzo ideale, STOP e consiglio live.</div>', unsafe_allow_html=True)
 
 def render_radar():
-    fm_page("📡 Radar", "Pressione d’asta, scarsità per ruolo e potenza residua degli avversari.")
-    rr=[]
-    for r in SLOTS:
-        sc,n=competition(r)
-        label="CRITICA" if sc>=75 else "ALTA" if sc>=55 else "MEDIA" if sc>=32 else "BASSA"
-        rr.append({"Ruolo":r,"Pressione":sc,"Livello":label,"Avversari interessati":n,
-                   "Scarsità":scarcity(r),"Urgenza FC Jigen":urgency(r)})
-    st.dataframe(pd.DataFrame(rr),hide_index=True,width="stretch")
-    rivals=[]
-    for n,d in S["rivals"].items():
-        avg=d["credits"]/max(1,d["slots"])
-        rivals.append({"Squadra":n,"Crediti":d["credits"],"Slot":d["slots"],"Crediti/slot":round(avg,1),
-                       "Potenza":"ALTA" if avg>=45 else "MEDIA" if avg>=25 else "BASSA"})
-    st.dataframe(pd.DataFrame(rivals).sort_values("Crediti/slot",ascending=False),hide_index=True,width="stretch")
+    fm_page(
+        "📡 Radar",
+        "Pressione d’asta, scarsità per ruolo e potenza residua degli avversari."
+    )
+
+    role_names = {
+        "POR": ("🧤", "Portieri"),
+        "DIF": ("🛡️", "Difensori"),
+        "CEN": ("⚙️", "Centrocampisti"),
+        "ATT": ("🎯", "Attaccanti"),
+    }
+
+    role_rows = []
+    for role in SLOTS:
+        pressure, interested = competition(role)
+        level = "CRITICA" if pressure >= 75 else "ALTA" if pressure >= 55 else "MEDIA" if pressure >= 32 else "BASSA"
+        role_rows.append({
+            "role": role,
+            "pressure": int(pressure),
+            "level": level,
+            "interested": int(interested),
+            "scarcity": int(scarcity(role)),
+            "urgency": int(urgency(role)),
+        })
+
+    # KPI rapidi
+    hottest = max(role_rows, key=lambda x: (x["pressure"], x["scarcity"]))
+    scarce = max(role_rows, key=lambda x: x["scarcity"])
+    urgent = max(role_rows, key=lambda x: x["urgency"])
+
+    c1, c2, c3 = st.columns(3)
+    c1.metric("🔥 Più caldo", hottest["role"])
+    c2.metric("📉 Più scarso", scarce["role"])
+    c3.metric("⚡ Urgenza Jigen", urgent["role"])
+
+    st.markdown("""
+    <style>
+    .fm-radar-grid{
+        display:grid;
+        grid-template-columns:repeat(2,minmax(0,1fr));
+        gap:9px;
+        margin:.55rem 0 1rem
+    }
+    .fm-radar-card{
+        background:linear-gradient(145deg,#123b30,#0d3027);
+        border:1px solid rgba(217,184,95,.28);
+        border-radius:16px;
+        padding:12px;
+        box-shadow:0 4px 14px rgba(0,0,0,.11)
+    }
+    .fm-radar-head{
+        display:flex;align-items:center;justify-content:space-between;gap:8px
+    }
+    .fm-radar-title{
+        color:#fff;font-size:.95rem;font-weight:950;line-height:1.05
+    }
+    .fm-radar-level{
+        padding:4px 7px;border-radius:999px;font-size:.56rem;font-weight:950;
+        background:rgba(217,184,95,.13);border:1px solid rgba(217,184,95,.24);color:#f5e2a4
+    }
+    .fm-radar-stats{
+        display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-top:9px
+    }
+    .fm-radar-stat{
+        background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.07);
+        border-radius:10px;padding:7px 5px;text-align:center
+    }
+    .fm-radar-stat b{
+        display:block;color:#fff8dc;font-size:.88rem;line-height:1
+    }
+    .fm-radar-stat span{
+        display:block;color:#9fb3aa;font-size:.50rem;margin-top:4px;text-transform:uppercase
+    }
+    .fm-radar-bar{
+        height:7px;background:rgba(255,255,255,.08);border-radius:999px;overflow:hidden;margin-top:10px
+    }
+    .fm-radar-fill{
+        height:100%;background:linear-gradient(90deg,#d9b85f,#f0d77e);border-radius:999px
+    }
+    .fm-radar-caption{
+        display:flex;justify-content:space-between;color:#9fb3aa;font-size:.55rem;margin-top:4px
+    }
+
+    .fm-rival-radar-list{display:flex;flex-direction:column;gap:8px;margin-top:.5rem}
+    .fm-rival-radar{
+        display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;
+        background:linear-gradient(145deg,#11382e,#0d3027);
+        border:1px solid rgba(217,184,95,.20);border-radius:14px;padding:10px 11px
+    }
+    .fm-rival-radar-name{font-weight:950;color:#fff;font-size:.88rem}
+    .fm-rival-radar-meta{color:#aebfb7;font-size:.61rem;margin-top:3px}
+    .fm-rival-radar-power{
+        min-width:68px;text-align:right;color:#f5e2a4;font-weight:950;font-size:.82rem
+    }
+    .fm-rival-radar-power small{
+        display:block;color:#9fb3aa;font-size:.49rem;font-weight:700;margin-top:3px
+    }
+
+    @media(max-width:700px){
+        .fm-radar-grid{grid-template-columns:1fr;gap:8px}
+        .fm-radar-card{padding:11px}
+        .fm-radar-title{font-size:.91rem}
+        .fm-radar-stats{gap:4px}
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    st.markdown("### 🎯 Pressione per reparto")
+    cards = []
+    for row in role_rows:
+        icon, label = role_names[row["role"]]
+        pressure = max(0, min(100, row["pressure"]))
+        cards.append(
+            '<div class="fm-radar-card">'
+              '<div class="fm-radar-head">'
+                f'<div class="fm-radar-title">{icon} {html.escape(label)}</div>'
+                f'<div class="fm-radar-level">{html.escape(row["level"])}</div>'
+              '</div>'
+              '<div class="fm-radar-stats">'
+                f'<div class="fm-radar-stat"><b>{row["interested"]}</b><span>Rivali</span></div>'
+                f'<div class="fm-radar-stat"><b>{row["scarcity"]}</b><span>Scarsità</span></div>'
+                f'<div class="fm-radar-stat"><b>{row["urgency"]}</b><span>Urgenza</span></div>'
+              '</div>'
+              f'<div class="fm-radar-bar"><div class="fm-radar-fill" style="width:{pressure}%"></div></div>'
+              f'<div class="fm-radar-caption"><span>Pressione d’asta</span><span>{pressure}/100</span></div>'
+            '</div>'
+        )
+    st.markdown('<div class="fm-radar-grid">' + ''.join(cards) + '</div>', unsafe_allow_html=True)
+
+    # Potenza rivali, niente tabella desktop.
+    rivals = []
+    for name, d in (S.get("rivals", {}) or {}).items():
+        credits = int(d.get("credits", 0) or 0)
+        slots = int(d.get("slots", 0) or 0)
+        avg = credits / max(1, slots)
+        power_label = "ALTA" if avg >= 45 else "MEDIA" if avg >= 25 else "BASSA"
+        rivals.append({
+            "name": name,
+            "credits": credits,
+            "slots": slots,
+            "avg": round(avg, 1),
+            "power": power_label,
+        })
+    rivals.sort(key=lambda x: x["avg"], reverse=True)
+
+    st.markdown("### 👥 Potenza residua rivali")
+    rival_cards = []
+    for idx, r in enumerate(rivals, start=1):
+        rival_cards.append(
+            '<div class="fm-rival-radar">'
+              '<div>'
+                f'<div class="fm-rival-radar-name">#{idx} · {html.escape(str(r["name"]))}</div>'
+                f'<div class="fm-rival-radar-meta">💰 {r["credits"]} cr · 🎟️ {r["slots"]} slot</div>'
+              '</div>'
+              f'<div class="fm-rival-radar-power">{r["avg"]} cr/slot'
+                f'<small>{html.escape(r["power"])} POTENZA</small>'
+              '</div>'
+            '</div>'
+        )
+    st.markdown('<div class="fm-rival-radar-list">' + ''.join(rival_cards) + '</div>', unsafe_allow_html=True)
+
+    st.caption(
+        "Il Radar usa i dati salvati nell’app: pressione = competizione sul ruolo; "
+        "scarsità = disponibilità residua; urgenza = necessità FC Jigen. "
+        "La potenza rivali dipende dai crediti residui rispetto agli slot."
+    )
 
 def render_rivali():
     fm_page(
@@ -3645,328 +3797,773 @@ def render_rosa():
         
 
 def render_piano():
-    fm_page("🎯 Piano Asta", "Budget per ruolo, target, alternative e gestione degli arrivi dell’ultimo minuto.")
-    st.caption("Snapshot 01/09/2026 • modifiche salvate nel Cloud")
+    fm_page(
+        "🎯 Piano Mercato",
+        "Budget, priorità e target FC Jigen in una sola schermata operativa."
+    )
 
-    st.markdown("#### 💰 Budget guida per reparto")
-    bc1,bc2,bc3,bc4=st.columns(4)
-    bp={}
-    for col,r in zip((bc1,bc2,bc3,bc4),["POR","DIF","CEN","ATT"]):
-        bp[r]=col.number_input(r,min_value=0,max_value=BUDGET,value=int(S["plan_budget"].get(r,0)),
-                               step=5,key=f"plan_budget_{r}")
-    total_plan=sum(int(x) for x in bp.values())
-    if total_plan==BUDGET:
-        st.success(f"✅ Budget piano: {total_plan}/1000")
+    role_ui = {
+        "POR": ("🧤", "Portieri"),
+        "DIF": ("🛡️", "Difensori"),
+        "CEN": ("⚙️", "Centrocampisti"),
+        "ATT": ("🎯", "Attaccanti"),
+    }
+
+    # ---------- stato piano ----------
+    plan_budget = S.get("plan_budget", {}) or {}
+    roster = [dict(x) for x in S.get("roster", [])]
+    spent_by_role = {
+        role: sum(int(p.get("price", 0) or 0) for p in roster if p.get("role") == role)
+        for role in SLOTS
+    }
+    filled_by_role = {
+        role: sum(1 for p in roster if p.get("role") == role)
+        for role in SLOTS
+    }
+
+    active_targets = []
+    out_set = set(S.get("out", []))
+    for key, raw in (S.get("targets", {}) or {}).items():
+        v = target_defaults(dict(raw))
+        if v.get("status", "ATTIVO") != "ATTIVO":
+            continue
+        if f'{v.get("role","")}|{v.get("name","")}' in out_set:
+            continue
+        active_targets.append(v)
+
+    active_targets.sort(
+        key=lambda v: (
+            {"A": 0, "B": 1, "C": 2}.get(v.get("priority", "C"), 9),
+            -int(v.get("fvm", 0) or 0)
+        )
+    )
+
+    role_target_count = {
+        role: sum(1 for v in active_targets if v.get("role") == role)
+        for role in SLOTS
+    }
+
+    st.markdown("""
+    <style>
+    .fm-plan-kpis{
+        display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+        gap:8px;margin:.35rem 0 .9rem
+    }
+    .fm-plan-kpi{
+        background:linear-gradient(145deg,#123b30,#0d3027);
+        border:1px solid rgba(217,184,95,.25);
+        border-radius:15px;padding:11px 10px;text-align:center
+    }
+    .fm-plan-kpi b{display:block;color:#f5e2a4;font-size:1.12rem;line-height:1}
+    .fm-plan-kpi span{display:block;color:#aebfb7;font-size:.57rem;text-transform:uppercase;margin-top:5px;font-weight:800}
+
+    .fm-budget-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:.5rem 0 1rem}
+    .fm-budget-card{
+        background:linear-gradient(145deg,#123b30,#0d3027);
+        border:1px solid rgba(217,184,95,.25);
+        border-radius:15px;padding:11px
+    }
+    .fm-budget-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+    .fm-budget-name{font-size:.88rem;font-weight:950;color:#fff}
+    .fm-budget-value{font-size:.87rem;font-weight:950;color:#f5e2a4}
+    .fm-budget-meta{font-size:.59rem;color:#aebfb7;margin-top:4px}
+    .fm-budget-bar{height:7px;background:rgba(255,255,255,.08);border-radius:99px;overflow:hidden;margin-top:9px}
+    .fm-budget-fill{height:100%;background:linear-gradient(90deg,#d9b85f,#efd77d);border-radius:99px}
+    .fm-budget-foot{display:flex;justify-content:space-between;font-size:.53rem;color:#98aca2;margin-top:4px}
+
+    .fm-priority-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin:.4rem 0 .9rem}
+    .fm-priority-card{
+        background:#0e3329;border:1px solid rgba(217,184,95,.22);
+        border-radius:13px;padding:9px 7px;text-align:center
+    }
+    .fm-priority-card b{display:block;color:#fff7da;font-size:.89rem}
+    .fm-priority-card span{display:block;color:#aebfb7;font-size:.54rem;margin-top:4px}
+
+    .fm-target-list{display:flex;flex-direction:column;gap:8px;margin-top:.5rem}
+    .fm-target-card{
+        background:linear-gradient(145deg,#133c31,#0d3027);
+        border:1px solid rgba(217,184,95,.25);
+        border-radius:16px;padding:11px 12px
+    }
+    .fm-target-head{display:flex;justify-content:space-between;align-items:flex-start;gap:9px}
+    .fm-target-name{font-size:.97rem;font-weight:950;color:#fff;line-height:1.08}
+    .fm-target-meta{font-size:.62rem;color:#afc0b8;margin-top:4px}
+    .fm-target-prio{
+        padding:4px 8px;border-radius:999px;font-size:.54rem;font-weight:950;
+        border:1px solid rgba(217,184,95,.28);color:#f5e2a4;background:rgba(217,184,95,.12)
+    }
+    .fm-target-prio.a{background:#d9b85f;color:#09251c;border-color:#f1dc8a}
+    .fm-target-prices{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:9px}
+    .fm-target-price{
+        background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.07);
+        border-radius:10px;padding:7px 6px;text-align:center
+    }
+    .fm-target-price b{display:block;color:#fff8dc;font-size:.85rem}
+    .fm-target-price span{display:block;color:#9fb3aa;font-size:.48rem;text-transform:uppercase;margin-top:3px}
+    .fm-target-alt{
+        margin-top:8px;padding-top:7px;border-top:1px solid rgba(255,255,255,.07);
+        color:#c8d4ce;font-size:.61rem;line-height:1.35
+    }
+
+    @media(max-width:700px){
+        .fm-plan-kpis{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+        .fm-plan-kpi{padding:9px 6px}.fm-plan-kpi b{font-size:1rem}.fm-plan-kpi span{font-size:.50rem}
+        .fm-budget-grid{grid-template-columns:1fr}
+        .fm-priority-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+        .fm-target-card{padding:10px}
+        .fm-target-prices{gap:5px}
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    # ---------- KPI ----------
+    priority_a = sum(1 for v in active_targets if v.get("priority") == "A")
+    total_stop = sum(int(v.get("max", 0) or 0) for v in active_targets)
+    st.markdown(
+        '<div class="fm-plan-kpis">'
+        f'<div class="fm-plan-kpi"><b>{len(active_targets)}</b><span>Target attivi</span></div>'
+        f'<div class="fm-plan-kpi"><b>{priority_a}</b><span>Priorità A</span></div>'
+        f'<div class="fm-plan-kpi"><b>{int(S.get("credits",0) or 0)}</b><span>Crediti FC Jigen</span></div>'
+        '</div>',
+        unsafe_allow_html=True
+    )
+
+    # ---------- budget reparto ----------
+    st.markdown("### 💰 Budget per reparto")
+    budget_cards = []
+    for role in ["POR","DIF","CEN","ATT"]:
+        icon, label = role_ui[role]
+        target_budget = int(plan_budget.get(role, round(BUDGET * ROLE_BUDGET[role])) or 0)
+        spent = spent_by_role[role]
+        pct = round((spent / target_budget) * 100) if target_budget > 0 else 0
+        pct = max(0, min(100, pct))
+        delta = target_budget - spent
+        budget_cards.append(
+            '<div class="fm-budget-card">'
+              '<div class="fm-budget-head">'
+                f'<div class="fm-budget-name">{icon} {label}</div>'
+                f'<div class="fm-budget-value">{spent}/{target_budget} cr</div>'
+              '</div>'
+              f'<div class="fm-budget-meta">{filled_by_role[role]}/{SLOTS[role]} giocatori · {role_target_count[role]} target attivi</div>'
+              f'<div class="fm-budget-bar"><div class="fm-budget-fill" style="width:{pct}%"></div></div>'
+              '<div class="fm-budget-foot">'
+                f'<span>Spesa piano</span><span>{"+" if delta>=0 else ""}{delta} cr vs piano</span>'
+              '</div>'
+            '</div>'
+        )
+    st.markdown('<div class="fm-budget-grid">' + ''.join(budget_cards) + '</div>', unsafe_allow_html=True)
+
+    # ---------- priorità reparto ----------
+    st.markdown("### 🧭 Priorità mercato")
+    pr_cards = []
+    for role in ["POR","DIF","CEN","ATT"]:
+        icon, label = role_ui[role]
+        missing = max(0, SLOTS[role] - filled_by_role[role])
+        count = role_target_count[role]
+        if missing > 0:
+            status = f"{missing} slot da coprire"
+        elif count:
+            status = f"{count} alternative pronte"
+        else:
+            status = "Reparto coperto"
+        pr_cards.append(
+            f'<div class="fm-priority-card"><b>{icon} {role}</b><span>{html.escape(status)}</span></div>'
+        )
+    st.markdown('<div class="fm-priority-grid">' + ''.join(pr_cards) + '</div>', unsafe_allow_html=True)
+
+    # ---------- target ----------
+    st.markdown("### ⭐ Target principali")
+    if active_targets:
+        cards = []
+        for v in active_targets:
+            priority = str(v.get("priority","C"))
+            cls = " a" if priority == "A" else ""
+            ideal = int(v.get("ideal",0) or 0)
+            stop = int(v.get("max",0) or 0)
+            fvm = int(v.get("fvm",0) or 0)
+            alt = str(v.get("alternatives","") or "").strip()
+            note = str(v.get("notes","") or "").strip()
+
+            extra = []
+            if alt:
+                extra.append(f'🔁 <b>Alternative:</b> {html.escape(alt)}')
+            if note:
+                extra.append(f'📝 {html.escape(note)}')
+            extra_html = "<br>".join(extra) if extra else "Nessuna nota operativa."
+
+            cards.append(
+                '<div class="fm-target-card">'
+                  '<div class="fm-target-head">'
+                    '<div>'
+                      f'<div class="fm-target-name">{html.escape(str(v.get("name","")))}</div>'
+                      f'<div class="fm-target-meta">{html.escape(str(v.get("team","")))} · {html.escape(str(v.get("role","")))}</div>'
+                    '</div>'
+                    f'<div class="fm-target-prio{cls}">PRIORITÀ {html.escape(priority)}</div>'
+                  '</div>'
+                  '<div class="fm-target-prices">'
+                    f'<div class="fm-target-price"><b>{fvm}</b><span>FVM</span></div>'
+                    f'<div class="fm-target-price"><b>{ideal} cr</b><span>Ideale</span></div>'
+                    f'<div class="fm-target-price"><b>{stop} cr</b><span>Stop</span></div>'
+                  '</div>'
+                  f'<div class="fm-target-alt">{extra_html}</div>'
+                '</div>'
+            )
+        st.markdown('<div class="fm-target-list">' + ''.join(cards) + '</div>', unsafe_allow_html=True)
     else:
-        st.warning(f"⚠️ Budget piano: {total_plan}/1000 • differenza {BUDGET-total_plan:+d}")
-    if st.button("💾 SALVA BUDGET",width="stretch"):
-        S["plan_budget"]={r:int(bp[r]) for r in bp}
-        persist();st.success("Budget salvato nel Cloud")
+        st.info("Nessun target attivo. Puoi caricare il piano FC Jigen o aggiungere un target.")
 
-    st.divider()
-    cplan1,cplan2=st.columns(2)
-    with cplan1:
-        if st.button("⚡ CARICA PIANO FC JIGEN",type="primary",width="stretch"):
-            rec=recommended_targets()
-            # Merge intelligente: aggiunge i mancanti e corregge solo i campi zero/vuoti.
-            for k,v in rec.items():
+    # ---------- azioni operative ----------
+    st.markdown("### ⚙️ Gestione piano")
+    ac1, ac2 = st.columns(2)
+    with ac1:
+        if st.button("⚡ CARICA PIANO FC JIGEN", type="primary", width="stretch"):
+            rec = recommended_targets()
+            for k, v in rec.items():
                 if k not in S["targets"]:
-                    S["targets"][k]=v
+                    S["targets"][k] = v
                 else:
-                    cur=target_defaults(S["targets"][k])
-                    if int(cur.get("ideal",0) or 0)<=0: cur["ideal"]=int(v["ideal"])
-                    if int(cur.get("max",0) or 0)<=0: cur["max"]=int(v["max"])
-                    if not cur.get("alternatives"): cur["alternatives"]=v.get("alternatives","")
-                    if not cur.get("notes"): cur["notes"]=v.get("notes","")
-                    if not cur.get("team"): cur["team"]=v.get("team","")
-                    cur["fvm"]=int(v.get("fvm",cur.get("fvm",0)))
-            persist();st.rerun()
-    with cplan2:
-        st.metric("Target attivi",sum(1 for x in S["targets"].values() if x.get("status","ATTIVO")=="ATTIVO"))
+                    cur = target_defaults(S["targets"][k])
+                    if int(cur.get("ideal",0) or 0) <= 0: cur["ideal"] = int(v["ideal"])
+                    if int(cur.get("max",0) or 0) <= 0: cur["max"] = int(v["max"])
+                    if not cur.get("alternatives"): cur["alternatives"] = v.get("alternatives","")
+                    if not cur.get("notes"): cur["notes"] = v.get("notes","")
+                    if not cur.get("team"): cur["team"] = v.get("team","")
+                    cur["fvm"] = int(v.get("fvm",cur.get("fvm",0)))
+            persist()
+            st.rerun()
+    with ac2:
+        st.caption("Le modifiche vengono salvate nel Cloud.")
 
-    st.caption("Il piano preimpostato è una base strategica: puoi cambiare prezzi e priorità in qualsiasi momento.")
+    # Budget editing is secondary, hidden from the main visual flow.
+    with st.expander("💰 MODIFICA BUDGET REPARTI", expanded=False):
+        cols = st.columns(2)
+        bp = {}
+        for i, role in enumerate(["POR","DIF","CEN","ATT"]):
+            col = cols[i % 2]
+            bp[role] = col.number_input(
+                role, min_value=0, max_value=BUDGET,
+                value=int(plan_budget.get(role, round(BUDGET*ROLE_BUDGET[role])) or 0),
+                step=5, key=f"plan_budget_{role}"
+            )
+        total_plan = sum(int(x) for x in bp.values())
+        if total_plan == BUDGET:
+            st.success(f"✅ Budget piano: {total_plan}/1000")
+        else:
+            st.warning(f"⚠️ Totale {total_plan}/1000 · differenza {BUDGET-total_plan:+d}")
+        if st.button("💾 SALVA BUDGET", width="stretch"):
+            S["plan_budget"] = {r:int(bp[r]) for r in bp}
+            persist()
+            st.rerun()
 
-    st.markdown("#### 🚨 Ultimo minuto mercato")
-    st.caption("Se arriva un giocatore nuovo e non è ancora nel listone, aggiungilo qui dall’iPhone: entra subito in LIVE/MASTER/Piano e viene salvato nel Cloud.")
-    with st.expander("➕ AGGIUNGI NUOVO ARRIVO", expanded=False):
-        nm=st.text_input("Nome listone",placeholder="Es. Nuovo Cognome",key="new_player_name")
-        cc1,cc2=st.columns(2)
-        nr=cc1.selectbox("Ruolo",["POR","DIF","CEN","ATT"],key="new_player_role")
-        nt=cc2.text_input("Squadra",placeholder="Es. Inter",key="new_player_team")
-        cc3,cc4=st.columns(2)
-        nq=cc3.number_input("Quotazione",min_value=1,max_value=60,value=1,step=1,key="new_player_qta")
-        nf=cc4.number_input("FVM / 1000",min_value=1,max_value=600,value=25,step=1,key="new_player_fvm")
-        if st.button("✅ AGGIUNGI AL LISTONE",width="stretch",key="add_deadline_player"):
-            name=str(nm).strip()
+    with st.expander("➕ AGGIUNGI / AGGIORNA TARGET", expanded=False):
+        q2 = st.text_input("🔎 Cerca giocatore", placeholder="Es. Lautaro, Nico Paz, Dimarco", key="targetsearch")
+        ap = all_players()
+        pool = ap[~ap.key.isin(set(S["out"]))].copy()
+        if q2:
+            pool = pool[smart_player_mask(pool, q2)]
+        pool = pool.sort_values(["FVM","Nome"], ascending=[False,True]).head(100)
+        opts = [f"{r.Nome} • {r.Ruolo} • {r.Squadra} • FVM {r.FVM}" for _,r in pool.iterrows()]
+        t = st.selectbox("Giocatore", opts, index=None, placeholder="Tocca qui per scegliere...", key="targetpick")
+
+        c1,c2,c3 = st.columns(3)
+        fascia = c1.selectbox("Priorità", ["A","B","C"], key="targetprio")
+        ideal = c2.number_input("Ideale", min_value=0, max_value=BUDGET, value=0, step=1, key="targetideal")
+        maxp = c3.number_input("STOP", min_value=0, max_value=BUDGET, value=0, step=1, key="targetmax")
+        alternatives = st.text_input("Alternative immediate", placeholder="Es. McTominay / Calhanoglu", key="targetalt")
+        notes = st.text_input("Nota operativa", placeholder="Es. non superare lo STOP", key="targetnote")
+
+        if t and st.button("➕ SALVA TARGET", width="stretch"):
+            name = t.split(" • ")[0]
+            rr = pool[pool.Nome == name].iloc[0]
+            auto = auto_target_prices(rr)
+            S["targets"][rr.key] = {
+                "name":rr.Nome,"role":rr.Ruolo,"team":rr.Squadra,"fvm":int(rr.FVM),
+                "priority":fascia,
+                "ideal":int(ideal) if int(ideal)>0 else int(auto["ideal"]),
+                "max":int(maxp) if int(maxp)>0 else int(auto["max"]),
+                "alternatives":alternatives,"notes":notes,"status":"ATTIVO"
+            }
+            persist()
+            st.rerun()
+
+    # Individual target editing avoids a huge mobile data_editor.
+    if S.get("targets"):
+        with st.expander("✏️ MODIFICA / DISATTIVA TARGET", expanded=False):
+            labels = []
+            keys = []
+            for k,v in S["targets"].items():
+                vv = target_defaults(v)
+                labels.append(f'{vv.get("name","")} · {vv.get("role","")} · Priorità {vv.get("priority","C")}')
+                keys.append(k)
+
+            pick_idx = st.selectbox(
+                "Target da modificare",
+                range(len(labels)),
+                format_func=lambda i: labels[i],
+                key="plan_edit_target_pick"
+            )
+            k = keys[pick_idx]
+            cur = target_defaults(S["targets"][k])
+
+            e1,e2,e3 = st.columns(3)
+            new_prio = e1.selectbox(
+                "Priorità", ["A","B","C"],
+                index=["A","B","C"].index(cur.get("priority","C")),
+                key="plan_edit_prio"
+            )
+            new_ideal = e2.number_input(
+                "Ideale", min_value=0, max_value=BUDGET,
+                value=int(cur.get("ideal",0) or 0), key="plan_edit_ideal"
+            )
+            new_stop = e3.number_input(
+                "STOP", min_value=0, max_value=BUDGET,
+                value=int(cur.get("max",0) or 0), key="plan_edit_stop"
+            )
+            new_alt = st.text_input(
+                "Alternative", value=str(cur.get("alternatives","") or ""),
+                key="plan_edit_alt"
+            )
+            new_note = st.text_input(
+                "Nota", value=str(cur.get("notes","") or ""),
+                key="plan_edit_note"
+            )
+            status_opts = ["ATTIVO","PAUSA","USCITO"]
+            cur_status = cur.get("status","ATTIVO")
+            if cur_status not in status_opts: cur_status = "ATTIVO"
+            new_status = st.segmented_control(
+                "Stato", status_opts, default=cur_status,
+                key="plan_edit_status"
+            )
+
+            b1,b2 = st.columns(2)
+            if b1.button("💾 SALVA TARGET", width="stretch", key="plan_save_edit"):
+                cur.update({
+                    "priority":new_prio,
+                    "ideal":int(new_ideal),
+                    "max":int(new_stop),
+                    "alternatives":new_alt,
+                    "notes":new_note,
+                    "status":new_status or "ATTIVO",
+                })
+                S["targets"][k] = cur
+                persist()
+                st.rerun()
+
+            if b2.button("🗑️ ELIMINA TARGET", width="stretch", key="plan_delete_target"):
+                S["targets"].pop(k, None)
+                persist()
+                st.rerun()
+
+    # Deadline/manual arrivals are maintenance, not the core plan.
+    with st.expander("🛠️ MANUTENZIONE LISTONE / NUOVI ARRIVI", expanded=False):
+        nm = st.text_input("Nome listone", placeholder="Es. Nuovo Cognome", key="new_player_name")
+        cc1,cc2 = st.columns(2)
+        nr = cc1.selectbox("Ruolo", ["POR","DIF","CEN","ATT"], key="new_player_role")
+        nt = cc2.text_input("Squadra", placeholder="Es. Inter", key="new_player_team")
+        cc3,cc4 = st.columns(2)
+        nq = cc3.number_input("Quotazione", min_value=1, max_value=60, value=1, step=1, key="new_player_qta")
+        nf = cc4.number_input("FVM / 1000", min_value=1, max_value=600, value=25, step=1, key="new_player_fvm")
+
+        if st.button("✅ AGGIUNGI AL LISTONE", width="stretch", key="add_deadline_player"):
+            name = str(nm).strip()
             if not name:
                 st.error("Inserisci il nome.")
             else:
-                k=f"{nr}|{name}"
-                if k in set(all_players()["key"]):
+                pk = f"{nr}|{name}"
+                if pk in set(all_players()["key"]):
                     st.warning("Questo giocatore è già presente nel listone.")
                 else:
                     S["custom_players"].append({
                         "name":name,"role":nr,"team":str(nt).strip(),
-                        "qta":int(nq),"fvm":int(nf),"created_at":datetime.now().isoformat(timespec="seconds")
+                        "qta":int(nq),"fvm":int(nf),
+                        "created_at":datetime.now().isoformat(timespec="seconds")
                     })
                     persist()
-                    st.success(f"✅ {name} aggiunto e salvato nel Cloud")
                     st.rerun()
 
-    if S.get("custom_players"):
-        st.markdown("**Nuovi arrivi aggiunti manualmente**")
-        cdf=pd.DataFrame(S["custom_players"]).rename(columns={
-            "name":"Nome","role":"Ruolo","team":"Squadra","qta":"Qt.A","fvm":"FVM","created_at":"Inserito"
-        })
-        cdf["Elimina"]=False
-        edited_custom=st.data_editor(
-            cdf,hide_index=True,width="stretch",
-            disabled=["Nome","Ruolo","Squadra","Qt.A","FVM","Inserito"],
-            column_order=["Nome","Ruolo","Squadra","Qt.A","FVM","Elimina"],
-            column_config={"Elimina":st.column_config.CheckboxColumn("Elimina")},
-            key="deadline_editor"
-        )
-        if st.button("🗑️ SALVA ELIMINAZIONI",width="stretch",key="delete_deadline_players"):
-            to_delete=set()
-            for _,rr in edited_custom.iterrows():
-                if bool(rr.get("Elimina",False)):
-                    to_delete.add((str(rr["Ruolo"]),str(rr["Nome"])))
-            if to_delete:
-                S["custom_players"]=[
-                    x for x in S["custom_players"]
-                    if (str(x.get("role","")),str(x.get("name",""))) not in to_delete
-                ]
-                persist();st.rerun()
-
-    st.markdown("#### ➕ Aggiungi / aggiorna target")
-    q2=st.text_input("🔎 Cerca giocatore",placeholder="Es. Lautaro, Nico Paz, Dimarco",key="targetsearch")
-    ap=all_players(); pool=ap[~ap.key.isin(set(S["out"]))].copy()
-    if q2:
-        pool=pool[smart_player_mask(pool,q2)]
-    pool=pool.sort_values(["FVM","Nome"],ascending=[False,True]).head(100)
-    opts=[f"{r.Nome} • {r.Ruolo} • {r.Squadra} • FVM {r.FVM}" for _,r in pool.iterrows()]
-    t=st.selectbox("Giocatore",opts,index=None,placeholder="Tocca qui per scegliere...",key="targetpick")
-    tc1,tc2,tc3=st.columns(3)
-    fascia=tc1.selectbox("Priorità",["A","B","C"],key="targetprio")
-    ideal=tc2.number_input("Prezzo ideale",min_value=0,max_value=BUDGET,value=0,step=1,key="targetideal")
-    maxp=tc3.number_input("STOP massimo",min_value=0,max_value=BUDGET,value=0,step=1,key="targetmax")
-    alternatives=st.text_input("Alternative immediate",placeholder="Es. McTominay / Calhanoglu",key="targetalt")
-    notes=st.text_input("Nota",placeholder="Es. non superare lo STOP",key="targetnote")
-    if t and st.button("➕ SALVA TARGET",width="stretch"):
-        name=t.split(" • ")[0]
-        rr=pool[pool.Nome==name].iloc[0]
-        auto=auto_target_prices(rr)
-        S["targets"][rr.key]={
-            "name":rr.Nome,"role":rr.Ruolo,"team":rr.Squadra,"fvm":int(rr.FVM),
-            "priority":fascia,
-            "ideal":int(ideal) if int(ideal)>0 else int(auto["ideal"]),
-            "max":int(maxp) if int(maxp)>0 else int(auto["max"]),
-            "alternatives":alternatives,"notes":notes,"status":"ATTIVO"
-        }
-        persist();st.rerun()
-
-    if S["targets"]:
-        st.markdown("#### ✏️ Modifica target")
-        records=[]
-        for k,v in S["targets"].items():
-            v=target_defaults(v)
-            if f'{v.get("role","")}|{v.get("name","")}' in set(S["out"]):
-                stato="USCITO"
-            else:
-                stato=v.get("status","ATTIVO")
-            records.append({
-                "_key":k,
-                "Nome":v.get("name",""),"Ruolo":v.get("role",""),"Squadra":v.get("team",""),
-                "FVM":int(v.get("fvm",0) or 0),"Priorità":v.get("priority","C"),
-                "Ideale":int(v.get("ideal",0) or 0),"STOP":int(v.get("max",0) or 0),
-                "Alternative":v.get("alternatives",""),"Note":v.get("notes",""),
-                "Stato":stato,"Elimina":False
-            })
-        tdf=pd.DataFrame(records)
-        order={"A":0,"B":1,"C":2}
-        tdf["_ord"]=tdf["Priorità"].map(order).fillna(9)
-        tdf=tdf.sort_values(["Ruolo","_ord","FVM"],ascending=[True,True,False]).drop(columns=["_ord"]).reset_index(drop=True)
-
-        edited=st.data_editor(
-            tdf,
-            hide_index=True,
-            width="stretch",
-            height=520,
-            disabled=["_key","Nome","Ruolo","Squadra","FVM"],
-            column_order=["Nome","Ruolo","Priorità","Ideale","STOP","Alternative","Note","Stato","Elimina"],
-            column_config={
-                "Priorità":st.column_config.SelectboxColumn("Priorità",options=["A","B","C"],required=True),
-                "Ideale":st.column_config.NumberColumn("Ideale",min_value=0,max_value=BUDGET,step=1),
-                "STOP":st.column_config.NumberColumn("STOP",min_value=0,max_value=BUDGET,step=1),
-                "Stato":st.column_config.SelectboxColumn("Stato",options=["ATTIVO","PAUSA","USCITO"],required=True),
-                "Elimina":st.column_config.CheckboxColumn("Elimina")
-            },
-            key="targets_editor"
-        )
-        if st.button("💾 SALVA MODIFICHE TARGET",type="primary",width="stretch"):
-            new_targets={}
-            for _,rr in edited.iterrows():
-                if bool(rr.get("Elimina",False)):
-                    continue
-                k=str(rr["_key"])
-                old=S["targets"].get(k,{})
-                new_targets[k]={
-                    "name":old.get("name",rr["Nome"]),"role":old.get("role",rr["Ruolo"]),
-                    "team":old.get("team",rr.get("Squadra","")),"fvm":int(old.get("fvm",rr.get("FVM",0)) or 0),
-                    "priority":str(rr["Priorità"]),"ideal":int(rr["Ideale"] or 0),"max":int(rr["STOP"] or 0),
-                    "alternatives":str(rr.get("Alternative","") or ""),"notes":str(rr.get("Note","") or ""),
-                    "status":str(rr.get("Stato","ATTIVO"))
-                }
-            S["targets"]=new_targets
-            persist();st.rerun()
-
-        # Vista rapida da asta: solo target ancora disponibili e attivi
-        active=[]
-        out_set=set(S["out"])
-        for v in S["targets"].values():
-            if v.get("status","ATTIVO")!="ATTIVO":
-                continue
-            if f'{v.get("role","")}|{v.get("name","")}' in out_set:
-                continue
-            active.append({
-                "Nome":v.get("name"),"R":v.get("role"),"P":v.get("priority","C"),
-                "FVM":v.get("fvm",0),"Ideale":v.get("ideal",0),"STOP":v.get("max",0),
-                "Alternative":v.get("alternatives","")
-            })
-        if active:
-            adf=pd.DataFrame(active)
-            adf["_ord"]=adf["P"].map({"A":0,"B":1,"C":2}).fillna(9)
-            st.markdown("#### 🚦 Vista rapida asta")
-            st.dataframe(adf.sort_values(["R","_ord","FVM"],ascending=[True,True,False]).drop(columns=["_ord"]),
-                         hide_index=True,width="stretch")
-    else:
-        st.info("Nessun target. Premi “CARICA PIANO FC JIGEN” oppure aggiungili manualmente.")
+        if S.get("custom_players"):
+            st.caption(f"Nuovi arrivi manuali presenti: {len(S['custom_players'])}")
 
 def render_scommesse():
-    fm_page("🎲 Scommesse", "Profili low cost e upside da prendere soltanto quando il prezzo crea valore.")
-    st.caption("IDEALE e STOP qui sono dedicati alla scommessa e non sostituiscono il Piano principale.")
-    role_bet=st.segmented_control("Ruolo scommesse",["TUTTI","POR","DIF","CEN","ATT"],default="TUTTI",key="bet_role")
-    ap=all_players()
-    bets=[]
-    bet_keywords = ("SCOMMESS", "LOW COST", "UPSIDE")
-    for name,info in PLAYER_INTEL.items():
-        bet_text = " ".join([
-            str(info.get("tag","")),
-            str(info.get("verdict","")),
-            str(info.get("summary",""))
-        ]).upper()
-        if not any(k in bet_text for k in bet_keywords):
+    fm_page(
+        "🎲 Scommesse",
+        "Profili low cost e upside da prendere soltanto quando il prezzo crea valore."
+    )
+    st.caption("IDEALE e STOP sono dedicati alla scommessa e non sostituiscono il Piano principale.")
+
+    rows = []
+    for _, r in PLAYERS.iterrows():
+        fvm = int(r.get("FVM", 0) or 0)
+        role = str(r.get("Ruolo", ""))
+        if not role:
             continue
-        mm=ap[ap["Nome"].astype(str)==name]
-        if mm.empty:
+
+        # Mantiene la logica low-cost già usata dalla sezione, ma presenta i risultati come card.
+        if fvm <= 12:
+            tipo = "SCOMMESSA FORTE"
+            ideal = max(1, round(fvm * 0.45))
+            stop = max(ideal + 1, round(fvm * 0.8))
+        elif fvm <= 20:
+            tipo = "SCOMMESSA MEDIA"
+            ideal = max(1, round(fvm * 0.35))
+            stop = max(ideal + 1, round(fvm * 0.65))
+        else:
             continue
-        rr=mm.iloc[0]
-        if role_bet!="TUTTI" and rr.Ruolo!=role_bet:
-            continue
-        bets.append({
-            "Nome":rr.Nome,"R":rr.Ruolo,"Squadra":rr.Squadra,"FVM":int(rr.FVM),
-            "Tipo":info.get("tag",""),"Titolarità":info.get("titolarita",""),
-            "Rischio":info.get("risk",""),"Ideale":info.get("ideal",""),
-            "STOP":info.get("stop",""),"Giudizio":info.get("verdict","")
+
+        rows.append({
+            "Nome": str(r.get("Nome", "")),
+            "Ruolo": role,
+            "Squadra": str(r.get("Squadra", "")),
+            "FVM": fvm,
+            "Tipo": tipo,
+            "Ideale": ideal,
+            "Stop": stop,
         })
-    if bets:
-        bdf=pd.DataFrame(bets)
-        st.dataframe(bdf,hide_index=True,width="stretch")
-        pick=st.selectbox("Analizza scommessa",["—"]+[x["Nome"] for x in bets],key="bet_pick")
-        if pick!="—":
-            rr=ap[ap["Nome"].astype(str)==pick].iloc[0]
-            st.markdown(f"### {rr.Nome}")
-            st.caption(f"{rr.Ruolo} • {rr.Squadra} • FVM {int(rr.FVM)}")
-            render_player_intel(rr)
-    else:
-        st.info("Nessuna scommessa in questo filtro.")
+
+    if not rows:
+        st.info("Nessun profilo scommessa disponibile.")
+        return
+
+    df = pd.DataFrame(rows)
+
+    st.markdown("""
+    <style>
+    .fm-bet-filter div[role="radiogroup"]{
+        display:grid!important;
+        grid-template-columns:repeat(5,minmax(0,1fr))!important;
+        gap:6px!important;
+        background:transparent!important;
+    }
+    .fm-bet-filter button{
+        min-width:0!important;
+        width:100%!important;
+        min-height:42px!important;
+        background:#0d3328!important;
+        color:#fff5d1!important;
+        -webkit-text-fill-color:#fff5d1!important;
+        border:1px solid rgba(217,184,95,.30)!important;
+        border-radius:12px!important;
+        box-shadow:none!important;
+    }
+    .fm-bet-filter button *{
+        color:inherit!important;
+        -webkit-text-fill-color:inherit!important;
+    }
+    .fm-bet-filter button[aria-checked="true"]{
+        background:linear-gradient(180deg,#edd27e,#d5ae4f)!important;
+        color:#082219!important;
+        -webkit-text-fill-color:#082219!important;
+        border-color:#efd982!important;
+    }
+
+    .fm-bet-list{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+    .fm-bet-card{
+        background:linear-gradient(145deg,#123b30,#0d3027);
+        border:1px solid rgba(217,184,95,.25);
+        border-radius:15px;padding:11px 12px;
+        box-shadow:0 4px 13px rgba(0,0,0,.10)
+    }
+    .fm-bet-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+    .fm-bet-name{font-size:.96rem;font-weight:950;color:#fff;line-height:1.1}
+    .fm-bet-meta{font-size:.65rem;color:#afc0b8;margin-top:4px}
+    .fm-bet-type{
+        padding:4px 7px;border-radius:999px;font-size:.54rem;font-weight:950;
+        background:rgba(217,184,95,.13);border:1px solid rgba(217,184,95,.24);
+        color:#f5e2a4;white-space:nowrap
+    }
+    .fm-bet-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+    .fm-bet-chip{
+        padding:4px 7px;border-radius:999px;background:rgba(255,255,255,.06);
+        border:1px solid rgba(255,255,255,.08);font-size:.60rem;
+        color:#e8efeb;font-weight:800
+    }
+    .fm-bet-chip.gold{
+        color:#f5e2a4;background:rgba(217,184,95,.13);border-color:rgba(217,184,95,.24)
+    }
+    .fm-bet-prices{
+        display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:9px
+    }
+    .fm-bet-price{
+        background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.07);
+        border-radius:10px;padding:7px 8px
+    }
+    .fm-bet-price b{display:block;color:#fff8dc;font-size:.88rem}
+    .fm-bet-price span{display:block;color:#9fb3aa;font-size:.51rem;margin-top:2px;text-transform:uppercase}
+
+    @media(max-width:700px){
+        .fm-bet-filter div[role="radiogroup"]{
+            grid-template-columns:repeat(3,minmax(0,1fr))!important;
+        }
+        .fm-bet-filter button{
+            min-height:40px!important;
+            font-size:.67rem!important;
+            padding:5px 4px!important;
+        }
+        .fm-bet-card{padding:10px 11px}
+        .fm-bet-type{font-size:.51rem}
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    st.markdown("**Ruolo scommesse**")
+    # wrapper class to style only this filter
+    st.markdown('<div class="fm-bet-filter-anchor"></div>', unsafe_allow_html=True)
+    ruolo = st.segmented_control(
+        "Ruolo scommesse",
+        ["TUTTI","POR","DIF","CEN","ATT"],
+        default="TUTTI",
+        key="fm_bet_role_filter",
+        label_visibility="collapsed"
+    )
+
+    # Streamlit key selector for the control.
+    st.markdown("""
+    <style>
+    .st-key-fm_bet_role_filter div[role="radiogroup"]{
+        display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr))!important;
+        gap:6px!important;background:transparent!important
+    }
+    .st-key-fm_bet_role_filter button{
+        min-width:0!important;width:100%!important;min-height:42px!important;
+        background:#0d3328!important;color:#fff5d1!important;-webkit-text-fill-color:#fff5d1!important;
+        border:1px solid rgba(217,184,95,.30)!important;border-radius:12px!important;box-shadow:none!important
+    }
+    .st-key-fm_bet_role_filter button *{color:inherit!important;-webkit-text-fill-color:inherit!important}
+    .st-key-fm_bet_role_filter button[aria-checked="true"]{
+        background:linear-gradient(180deg,#edd27e,#d5ae4f)!important;
+        color:#082219!important;-webkit-text-fill-color:#082219!important;border-color:#efd982!important
+    }
+    @media(max-width:700px){
+        .st-key-fm_bet_role_filter div[role="radiogroup"]{
+            grid-template-columns:repeat(3,minmax(0,1fr))!important
+        }
+        .st-key-fm_bet_role_filter button{
+            min-height:40px!important;font-size:.67rem!important;padding:5px 4px!important
+        }
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    if ruolo and ruolo != "TUTTI":
+        df = df[df["Ruolo"].eq(ruolo)].copy()
+
+    # Preferisci FVM più alto, poi stop più contenuto.
+    df = df.sort_values(["FVM","Stop"], ascending=[False, True])
+
+    cards = []
+    for _, r in df.iterrows():
+        cards.append(
+            '<div class="fm-bet-card">'
+              '<div class="fm-bet-head">'
+                '<div>'
+                  f'<div class="fm-bet-name">{html.escape(str(r["Nome"]))}</div>'
+                  f'<div class="fm-bet-meta">{html.escape(str(r["Squadra"]))} · {html.escape(str(r["Ruolo"]))}</div>'
+                '</div>'
+                f'<div class="fm-bet-type">{html.escape(str(r["Tipo"]))}</div>'
+              '</div>'
+              '<div class="fm-bet-chips">'
+                f'<span class="fm-bet-chip gold">💎 FVM {int(r["FVM"])}</span>'
+                f'<span class="fm-bet-chip">🎟️ {html.escape(str(r["Ruolo"]))}</span>'
+              '</div>'
+              '<div class="fm-bet-prices">'
+                f'<div class="fm-bet-price"><b>{int(r["Ideale"])} cr</b><span>Prezzo ideale</span></div>'
+                f'<div class="fm-bet-price"><b>{int(r["Stop"])} cr</b><span>Stop massimo</span></div>'
+              '</div>'
+            '</div>'
+        )
+
+    st.markdown('<div class="fm-bet-list">' + ''.join(cards) + '</div>', unsafe_allow_html=True)
 
 def render_storico():
-    fm_page("📈 Storico", "Tutte le operazioni dell’asta. Puoi correggere errori senza perdere la coerenza dello stato.")
+    fm_page(
+        "📈 Storico",
+        "Timeline dell’asta e della stagione: acquisti, movimenti, spesa e correzioni."
+    )
 
-    st.caption("Gestione movimenti: correggi o elimina una voce per errori, scambi o rettifiche post-asta.")
+    moves_hist = list(S.get("moves", []) or [])
+    roster = [dict(x) for x in S.get("roster", [])]
 
-    moves_hist = list(S.get("moves", []))
-    if moves_hist:
-        hist_labels = []
-        for i, m in enumerate(moves_hist):
-            hist_labels.append(
-                f"{i+1}. {m.get('name','?')} • {m.get('buyer','-')} • "
-                f"{int(m.get('price',0) or 0)} cr • {m.get('action','?')}"
-            )
+    spent = sum(int(p.get("price", 0) or 0) for p in roster)
+    avg_price = round(spent / max(1, len(roster)), 1)
+    biggest = max(roster, key=lambda p: int(p.get("price", 0) or 0)) if roster else None
 
-        edit_idx = st.selectbox(
-            "✏️ Movimento da modificare",
-            range(len(hist_labels)),
-            format_func=lambda i: hist_labels[i],
-            key="history_edit_idx"
+    k1, k2, k3 = st.columns(3)
+    k1.metric("💸 Spesa totale", spent)
+    k2.metric("📊 Prezzo medio", avg_price)
+    k3.metric("👑 Acquisto top", biggest.get("name","—") if biggest else "—")
+
+    st.markdown("""
+    <style>
+    .fm-history-summary{
+        display:grid;grid-template-columns:repeat(4,minmax(0,1fr));
+        gap:7px;margin:.45rem 0 .95rem
+    }
+    .fm-history-sum{
+        background:linear-gradient(145deg,#123b30,#0d3027);
+        border:1px solid rgba(217,184,95,.24);
+        border-radius:13px;padding:9px;text-align:center
+    }
+    .fm-history-sum b{display:block;color:#f5e2a4;font-size:.95rem}
+    .fm-history-sum span{display:block;color:#aebfb7;font-size:.52rem;margin-top:4px;text-transform:uppercase}
+    .fm-timeline{position:relative;margin-top:.65rem;padding-left:20px}
+    .fm-timeline:before{
+        content:"";position:absolute;left:7px;top:5px;bottom:5px;width:2px;
+        background:linear-gradient(#d9b85f,rgba(217,184,95,.15))
+    }
+    .fm-event{position:relative;margin-bottom:10px}
+    .fm-event:before{
+        content:"";position:absolute;left:-17px;top:14px;width:10px;height:10px;
+        border-radius:50%;background:#d9b85f;border:2px solid #0b2b23
+    }
+    .fm-event-card{
+        background:linear-gradient(145deg,#123b30,#0d3027);
+        border:1px solid rgba(217,184,95,.22);
+        border-radius:14px;padding:10px 11px
+    }
+    .fm-event-head{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+    .fm-event-title{font-size:.90rem;font-weight:950;color:#fff}
+    .fm-event-time{font-size:.55rem;color:#9fb3aa;white-space:nowrap}
+    .fm-event-meta{font-size:.62rem;color:#bccac4;margin-top:5px;line-height:1.35}
+    .fm-event-badge{
+        display:inline-flex;margin-top:7px;padding:3px 7px;border-radius:999px;
+        background:rgba(217,184,95,.13);border:1px solid rgba(217,184,95,.22);
+        color:#f5e2a4;font-size:.53rem;font-weight:900
+    }
+    @media(max-width:700px){
+        .fm-history-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+        .fm-event-head{display:block}
+        .fm-event-time{margin-top:4px}
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    spent_role = {
+        role: sum(int(p.get("price",0) or 0) for p in roster if p.get("role") == role)
+        for role in ["POR","DIF","CEN","ATT"]
+    }
+    st.markdown(
+        '<div class="fm-history-summary">'
+        + ''.join(
+            f'<div class="fm-history-sum"><b>{spent_role[r]} cr</b><span>{r}</span></div>'
+            for r in ["POR","DIF","CEN","ATT"]
         )
-        selected_move = dict(moves_hist[edit_idx])
-        is_unsold = selected_move.get("action") == "INV"
+        + '</div>',
+        unsafe_allow_html=True
+    )
 
-        if is_unsold:
-            st.info("Questo movimento è INVENDUTO: puoi eliminarlo per rimettere il giocatore sul mercato.")
-        else:
-            teams_hist = ["FC Jigen"] + RIVALS + ["NON TRACCIATO"]
-            current_buyer = selected_move.get("buyer","NON TRACCIATO")
-            if current_buyer not in teams_hist:
-                current_buyer = "NON TRACCIATO"
+    st.markdown("### 🕒 Timeline movimenti")
+    if moves_hist:
+        cards = []
+        for i, mv in enumerate(reversed(moves_hist[-80:]), start=1):
+            name = str(mv.get("name","?"))
+            buyer = str(mv.get("buyer","-"))
+            price = int(mv.get("price",0) or 0)
+            action = str(mv.get("action","?"))
+            role = str(mv.get("role",""))
+            team = str(mv.get("team",""))
+            stamp = str(mv.get("timestamp") or mv.get("time") or mv.get("date") or "")
 
-            h1,h2 = st.columns(2)
-            with h1:
-                new_buyer_hist = st.selectbox(
-                    "Nuova squadra",
-                    teams_hist,
-                    index=teams_hist.index(current_buyer),
-                    key="history_new_buyer"
-                )
-            with h2:
-                new_price_hist = st.number_input(
-                    "Nuovo prezzo",
-                    min_value=1,
-                    step=1,
-                    value=max(1,int(selected_move.get("price",1) or 1)),
-                    key="history_new_price"
-                )
+            if action == "MIO" or buyer == "FC Jigen":
+                title = f"✅ Acquisto · {name}"
+                badge = f"{price} cr · FC Jigen"
+            elif action == "INV":
+                title = f"⏸️ Invenduto · {name}"
+                badge = "Invenduto"
+            else:
+                title = f"↗️ Acquistato da {buyer} · {name}"
+                badge = f"{price} cr"
 
-        st.warning("⚠️ La modifica ricalcola automaticamente crediti, rosa, rivali e giocatori usciti.")
-
-        hc1,hc2 = st.columns(2)
-        with hc1:
-            if not is_unsold and st.button("💾 SALVA MODIFICA",width="stretch",key="history_save_edit"):
-                edited_moves = [dict(x) for x in moves_hist]
-                edited_moves[edit_idx]["buyer"] = new_buyer_hist
-                edited_moves[edit_idx]["price"] = int(new_price_hist)
-                edited_moves[edit_idx]["action"] = "MIO" if new_buyer_hist=="FC Jigen" else "ALTRI"
-                errs = rebuild_from_moves(edited_moves)
-                if errs:
-                    st.error("⛔ Modifica annullata: "+" | ".join(errs[:3]))
-                else:
-                    persist()
-                    st.success("✅ Movimento modificato e stato ricalcolato.")
-                    st.rerun()
-
-        with hc2:
-            if st.button("🗑️ ELIMINA MOVIMENTO",width="stretch",key="history_delete_move"):
-                kept = [dict(x) for j,x in enumerate(moves_hist) if j != edit_idx]
-                errs = rebuild_from_moves(kept)
-                if errs:
-                    st.error("⛔ Eliminazione annullata: "+" | ".join(errs[:3]))
-                else:
-                    persist()
-                    st.success("✅ Movimento eliminato. Giocatore di nuovo disponibile se necessario.")
-                    st.rerun()
+            meta = " · ".join(x for x in [team, role] if x) or "Movimento d’asta"
+            cards.append(
+                '<div class="fm-event">'
+                  '<div class="fm-event-card">'
+                    '<div class="fm-event-head">'
+                      f'<div class="fm-event-title">{html.escape(title)}</div>'
+                      f'<div class="fm-event-time">{html.escape(stamp)}</div>'
+                    '</div>'
+                    f'<div class="fm-event-meta">{html.escape(meta)}</div>'
+                    f'<div class="fm-event-badge">{html.escape(badge)}</div>'
+                  '</div>'
+                '</div>'
+            )
+        st.markdown('<div class="fm-timeline">' + ''.join(cards) + '</div>', unsafe_allow_html=True)
+        st.caption(f"{len(moves_hist)} operazioni registrate • indice mercato {market_index():.2f}x")
     else:
-        st.info("Storico vuoto: nessun movimento da modificare.")
+        st.info("Storico vuoto: nessun movimento registrato.")
 
+    with st.expander("✏️ CORREGGI / ELIMINA MOVIMENTO", expanded=False):
+        if moves_hist:
+            hist_labels = [
+                f"{i+1}. {m.get('name','?')} · {m.get('buyer','-')} · {int(m.get('price',0) or 0)} cr"
+                for i, m in enumerate(moves_hist)
+            ]
+            edit_idx = st.selectbox(
+                "Movimento",
+                range(len(hist_labels)),
+                format_func=lambda i: hist_labels[i],
+                key="history_edit_idx"
+            )
+            selected_move = dict(moves_hist[edit_idx])
+            is_unsold = selected_move.get("action") == "INV"
 
-    if S["moves"]:
-        h=pd.DataFrame(S["moves"])
-        st.dataframe(h.iloc[::-1],hide_index=True,width="stretch")
-        st.download_button("⬇️ Storico CSV",h.to_csv(index=False).encode(),file_name="storico_asta.csv",mime="text/csv")
-        st.caption(f"{len(h)} operazioni • indice mercato {market_index():.2f}x")
-    else:st.info("Storico vuoto.")
+            if is_unsold:
+                st.info("Movimento INVENDUTO: puoi eliminarlo per rimettere il giocatore sul mercato.")
+            else:
+                teams_hist = ["FC Jigen"] + RIVALS + ["NON TRACCIATO"]
+                current_buyer = selected_move.get("buyer","NON TRACCIATO")
+                if current_buyer not in teams_hist:
+                    current_buyer = "NON TRACCIATO"
+                h1,h2 = st.columns(2)
+                with h1:
+                    new_buyer_hist = st.selectbox(
+                        "Squadra",
+                        teams_hist,
+                        index=teams_hist.index(current_buyer),
+                        key="history_new_buyer"
+                    )
+                with h2:
+                    new_price_hist = st.number_input(
+                        "Prezzo",
+                        min_value=1,
+                        step=1,
+                        value=max(1,int(selected_move.get("price",1) or 1)),
+                        key="history_new_price"
+                    )
 
+            st.caption("La modifica ricalcola automaticamente crediti, rosa, rivali e giocatori usciti.")
+            hc1,hc2 = st.columns(2)
+
+            with hc1:
+                if not is_unsold and st.button("💾 SALVA",width="stretch",key="history_save_edit"):
+                    edited_moves = [dict(x) for x in moves_hist]
+                    edited_moves[edit_idx]["buyer"] = new_buyer_hist
+                    edited_moves[edit_idx]["price"] = int(new_price_hist)
+                    edited_moves[edit_idx]["action"] = "MIO" if new_buyer_hist=="FC Jigen" else "ALTRI"
+                    errs = rebuild_from_moves(edited_moves)
+                    if errs:
+                        st.error("⛔ Modifica annullata: "+" | ".join(errs[:3]))
+                    else:
+                        persist()
+                        st.rerun()
+
+            with hc2:
+                if st.button("🗑️ ELIMINA",width="stretch",key="history_delete_move"):
+                    kept = [dict(x) for j,x in enumerate(moves_hist) if j != edit_idx]
+                    errs = rebuild_from_moves(kept)
+                    if errs:
+                        st.error("⛔ Eliminazione annullata: "+" | ".join(errs[:3]))
+                    else:
+                        persist()
+                        st.rerun()
+        else:
+            st.caption("Nessun movimento da modificare.")
+
+    with st.expander("📊 RIEPILOGO TECNICO", expanded=False):
+        st.write(f"Crediti residui: **{int(S.get('credits',0) or 0)}**")
+        st.write(f"Giocatori in rosa: **{len(roster)}/25**")
+        st.write(f"Spesa complessiva: **{spent}**")
+        if biggest:
+            st.write(f"Acquisto più costoso: **{biggest.get('name','')}** ({int(biggest.get('price',0) or 0)} cr)")
 
 
 
