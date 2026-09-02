@@ -1,4 +1,4 @@
-# VERSIONE v4.0.2 FANTAMOSSA - MOBILE ROSTER DETAILS
+# VERSIONE v4.0.3 FANTAMOSSA - CLEAN MOBILE ACTIONS
 # FC Jigen - file corretto per GitHub
 
 import re
@@ -88,6 +88,38 @@ FANTAMOSSA_ICON_B64 = """iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAMAAADVRocKAAABIFBMVEX
 FANTAMOSSA_ICON = BytesIO(base64.b64decode(FANTAMOSSA_ICON_B64))
 
 st.set_page_config(page_title="FantaMossa", page_icon=FANTAMOSSA_ICON, layout="wide")
+
+st.markdown("""
+<style>
+/* v4.0.3 — contrasto coerente per pulsanti Streamlit */
+.stButton > button,
+.stDownloadButton > button,
+.stLinkButton > a {
+    background: linear-gradient(145deg,#173f34,#103229) !important;
+    color: #fff8dc !important;
+    border: 1px solid rgba(217,184,95,.45) !important;
+    border-radius: 14px !important;
+    font-weight: 850 !important;
+}
+.stButton > button:hover,
+.stDownloadButton > button:hover,
+.stLinkButton > a:hover {
+    background: #1c4b3d !important;
+    color: #ffffff !important;
+    border-color: #d9b85f !important;
+}
+.stButton > button *,
+.stDownloadButton > button *,
+.stLinkButton > a * {
+    color: inherit !important;
+}
+.stButton > button:disabled,
+.stDownloadButton > button:disabled {
+    opacity: .55 !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
 
 st.markdown(f"""
 <link rel="apple-touch-icon" sizes="96x96" href="data:image/png;base64,{FANTAMOSSA_ICON_B64}">
@@ -2423,16 +2455,10 @@ def render_dashboard():
         for _,r in watch.iterrows():
             st.markdown(f"**{r.Nome}** · {int(r.Prezzo)} cr  \nFVM {int(r.FVM)} · {r.Slot}° slot")
 
-    with st.expander("📋 ROSA COMPLETA · DATI TECNICI", expanded=False):
+    with st.expander("📋 ROSA COMPLETA · DETTAGLI", expanded=False):
         detail=rdf[["Nome","Ruolo","Squadra","Prezzo","FVM","Slot","Forza","Titolarità"]].copy()
         _render_mobile_roster_details(detail, include_titolarita=True)
-        st.download_button(
-            "⬇️ ESPORTA ROSA CSV",
-            detail.to_csv(index=False).encode(),
-            file_name="rosa_fc_jigen.csv",
-            mime="text/csv",
-            width="stretch"
-        )
+        
 
 @st.cache_data(ttl=600, show_spinner=False)
 def _fetch_public_page_text(url):
@@ -3460,16 +3486,10 @@ def render_rosa():
             cards.append(_app_player_card(r.Nome,r.Ruolo,r.Squadra,r.Prezzo,r.FVM,r.Slot,r.Forza))
         st.markdown('<div class="app-player-grid">'+''.join(cards)+'</div>',unsafe_allow_html=True)
 
-    with st.expander("📋 DETTAGLI TECNICI / ESPORTA", expanded=False):
+    with st.expander("📋 DETTAGLI TECNICI", expanded=False):
         technical = rdf[["Nome","Ruolo","Squadra","Prezzo","FVM","Slot","Forza"]].copy()
         _render_mobile_roster_details(technical, include_titolarita=False)
-        st.download_button(
-            "⬇️ ESPORTA ROSA CSV",
-            rdf.to_csv(index=False).encode(),
-            file_name="rosa_fc_jigen.csv",
-            mime="text/csv",
-            width="stretch"
-        )
+        
 
 def render_piano():
     fm_page("🎯 Piano Asta", "Budget per ruolo, target, alternative e gestione degli arrivi dell’ultimo minuto.")
