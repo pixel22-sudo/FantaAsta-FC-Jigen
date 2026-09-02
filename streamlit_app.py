@@ -1,4 +1,4 @@
-# VERSIONE v4.0.4 FANTAMOSSA - DARK EXPANDERS
+# VERSIONE v4.0.5 FANTAMOSSA - RIVALS MOBILE CARDS
 # FC Jigen - file corretto per GitHub
 
 import re
@@ -2247,26 +2247,121 @@ def render_radar():
     st.dataframe(pd.DataFrame(rivals).sort_values("Crediti/slot",ascending=False),hide_index=True,width="stretch")
 
 def render_rivali():
-    fm_page("👥 Rivali", "Controlla chi ha ancora più potere di spesa e aggiorna i dati solo quando serve.")
-    rows=[{"Squadra":n,"Crediti":x["credits"],"Slot":x["slots"],**x["roles"],
-           "Crediti/slot":round(x["credits"]/max(1,x["slots"]),1)} for n,x in S["rivals"].items()]
-    rview=pd.DataFrame(rows).sort_values(["Crediti/slot","Crediti"],ascending=False)
-    st.dataframe(rview,hide_index=True,width="stretch")
+    fm_page(
+        "👥 Rivali",
+        "Confronto rapido delle altre squadre: crediti, slot e potere d'acquisto."
+    )
 
-    with st.expander("✏️ Aggiorna un rivale", expanded=False):
-        selected=st.selectbox("Squadra",RIVALS,key="rival_edit_team")
-        d=S["rivals"][selected]
-        rv1,rv2,rv3=st.columns(3)
-        rv1.metric("Crediti",d["credits"]); rv2.metric("Slot",d["slots"]); rv3.metric("Crediti/slot",round(d["credits"]/max(1,d["slots"]),1))
-        c1,c2=st.columns(2)
-        with c1:
-            cred=st.number_input("Crediti residui",0,BUDGET,int(d["credits"]),key="rvcred")
-            slots=st.number_input("Slot totali residui",0,25,int(d["slots"]),key="rvslots")
-        with c2:
-            vals={}
-            for r in SLOTS: vals[r]=st.number_input(f"Slot {r}",0,SLOTS[r],int(d["roles"][r]),key=f"rv_{r}")
-        if st.button("💾 SALVA RIVALE",type="primary",width="stretch",key="save_rival_edit"):
-            d["credits"]=int(cred);d["slots"]=int(slots);d["roles"]={r:int(vals[r]) for r in SLOTS};persist();st.rerun()
+    rows = []
+    for name, d in (S.get("rivals", {}) or {}).items():
+        credits = int(d.get("credits", 0) or 0)
+        slots = int(d.get("slots", 0) or 0)
+        att = int(d.get("ATT", 0) or 0)
+        cen = int(d.get("CEN", 0) or 0)
+        dif = int(d.get("DIF", 0) or 0)
+        por = int(d.get("POR", 0) or 0)
+
+        # Più crediti e più slot liberi = maggiore capacità di intervenire.
+        slots_free = max(0, 25 - slots)
+        buying_power = round((credits / 1000) * 70 + (slots_free / 25) * 30)
+        buying_power = max(0, min(100, buying_power))
+
+        rows.append({
+            "name": name,
+            "credits": credits,
+            "slots": slots,
+            "free": slots_free,
+            "ATT": att,
+            "CEN": cen,
+            "DIF": dif,
+            "POR": por,
+            "power": buying_power,
+        })
+
+    if not rows:
+        st.info("Nessun dato rivali disponibile.")
+        return
+
+    rows.sort(key=lambda x: (x["power"], x["credits"]), reverse=True)
+
+    top = rows[0]
+    avg_credits = round(sum(x["credits"] for x in rows) / len(rows))
+    active_market = sum(1 for x in rows if x["free"] > 0)
+
+    k1, k2, k3 = st.columns(3)
+    k1.metric("⚡ Più pericoloso", top["name"])
+    k2.metric("💰 Crediti medi", avg_credits)
+    k3.metric("🛒 Con slot liberi", active_market)
+
+    st.markdown("""
+    <style>
+    .fm-rivals-wrap{display:flex;flex-direction:column;gap:9px;margin-top:12px}
+    .fm-rival-card{
+        background:linear-gradient(145deg,#123b30,#0d3027);
+        border:1px solid rgba(217,184,95,.27);
+        border-radius:16px;padding:12px 13px;
+        box-shadow:0 4px 14px rgba(0,0,0,.11)
+    }
+    .fm-rival-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+    .fm-rival-name{font-size:1rem;font-weight:950;color:#fff;line-height:1.1}
+    .fm-rival-rank{
+        min-width:34px;height:34px;display:flex;align-items:center;justify-content:center;
+        border-radius:10px;background:rgba(217,184,95,.16);
+        color:#f5e2a4;font-weight:950;border:1px solid rgba(217,184,95,.25)
+    }
+    .fm-rival-meta{font-size:.68rem;color:#bfcfc7;margin-top:4px}
+    .fm-rival-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+    .fm-rival-chip{
+        padding:4px 7px;border-radius:999px;background:rgba(255,255,255,.07);
+        border:1px solid rgba(255,255,255,.08);font-size:.62rem;
+        color:#e8efeb;font-weight:800
+    }
+    .fm-rival-chip.gold{color:#f5e2a4;background:rgba(217,184,95,.13);border-color:rgba(217,184,95,.24)}
+    .fm-rival-bar{height:7px;background:rgba(255,255,255,.09);border-radius:999px;overflow:hidden;margin-top:10px}
+    .fm-rival-fill{height:100%;background:linear-gradient(90deg,#d9b85f,#f3db8c);border-radius:999px}
+    .fm-rival-foot{display:flex;justify-content:space-between;gap:8px;margin-top:5px;font-size:.59rem;color:#9fb3aa}
+    @media(max-width:700px){
+        .fm-rival-card{padding:11px}
+        .fm-rival-name{font-size:.94rem}
+        .fm-rival-chip{font-size:.59rem}
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    cards = []
+    for idx, r in enumerate(rows, start=1):
+        power = int(r["power"])
+        free_txt = f'{r["free"]} liberi' if r["free"] else "rosa completa"
+
+        cards.append(
+            '<div class="fm-rival-card">'
+              '<div class="fm-rival-head">'
+                '<div>'
+                  f'<div class="fm-rival-name">{html.escape(str(r["name"]))}</div>'
+                  f'<div class="fm-rival-meta">{r["slots"]}/25 slot · {html.escape(free_txt)}</div>'
+                '</div>'
+                f'<div class="fm-rival-rank">#{idx}</div>'
+              '</div>'
+              '<div class="fm-rival-chips">'
+                f'<span class="fm-rival-chip gold">💰 {r["credits"]} cr</span>'
+                f'<span class="fm-rival-chip">🧤 {r["POR"]} POR</span>'
+                f'<span class="fm-rival-chip">🛡️ {r["DIF"]} DIF</span>'
+                f'<span class="fm-rival-chip">⚙️ {r["CEN"]} CEN</span>'
+                f'<span class="fm-rival-chip">🎯 {r["ATT"]} ATT</span>'
+              '</div>'
+              f'<div class="fm-rival-bar"><div class="fm-rival-fill" style="width:{power}%"></div></div>'
+              '<div class="fm-rival-foot">'
+                f'<span>Potere d’acquisto</span><span>{power}/100</span>'
+              '</div>'
+            '</div>'
+        )
+
+    st.markdown('<div class="fm-rivals-wrap">' + ''.join(cards) + '</div>', unsafe_allow_html=True)
+
+    st.caption(
+        "Potere d’acquisto = indicatore interno basato su crediti residui e slot ancora liberi. "
+        "Serve per capire chi può muoversi di più sul mercato."
+    )
 
 def _app_state_meta(state):
     s = str(state or "")
