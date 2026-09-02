@@ -1,7 +1,8 @@
-# VERSIONE v3.34.2 FANTAMOSSA - AUTO STATUS + RECENT NEWS
+# VERSIONE v3.35.0 FANTAMOSSA - TACTICAL LINEUP PITCH
 # FC Jigen - file corretto per GitHub
 
 import re
+import html
 import time
 import streamlit as st
 from io import BytesIO
@@ -10,6 +11,7 @@ import pandas as pd
 import json, statistics, hashlib
 import unicodedata
 import xml.etree.ElementTree as ET
+import html as html_lib
 from email.utils import parsedate_to_datetime
 from urllib.parse import quote_plus
 
@@ -1829,7 +1831,7 @@ st.markdown(
 
 with st.sidebar:
     st.header("⚙️ FantaMossa")
-    st.caption("Controlli rapidi • v3.34.2")
+    st.caption("Controlli rapidi • v3.35.0")
     st.button("☁️ SALVA ORA", width="stretch", on_click=_quick_cloud_save, key="sidebar_quick_save")
     st.button("↩️ ANNULLA ULTIMA", width="stretch", on_click=_quick_undo, key="sidebar_quick_undo")
     quick_sidebar_notice=st.session_state.pop("_quick_notice",None)
@@ -2219,6 +2221,137 @@ def render_dashboard():
         )
 
 
+@st.cache_data(ttl=600, show_spinner=False)
+def _fetch_public_page_text(url):
+    """Scarica una pagina pubblica con timeout breve e restituisce solo testo normalizzato."""
+    try:
+        req = Request(url, headers={"User-Agent":"Mozilla/5.0 FantaMossa/3.34.3"})
+        with urlopen(req, timeout=3.0) as resp:
+            raw = resp.read(900000).decode("utf-8", "ignore")
+        raw = re.sub(r"(?is)<script.*?</script>|<style.*?</style>", " ", raw)
+        raw = re.sub(r"(?s)<[^>]+>", " ", raw)
+        raw = html_lib.unescape(raw)
+        raw = re.sub(r"\\s+", " ", raw).strip()
+        return raw, ""
+    except Exception as exc:
+        return "", f"{type(exc).__name__}: {exc}"
+
+
+def _player_search_terms(player_name):
+    """Termini conservativi per riconoscere il giocatore senza confonderlo con omonimi."""
+    norm = _norm_search(player_name)
+    toks = [t for t in norm.split() if len(t) >= 3]
+    if not toks:
+        return []
+    # Il nome Fantacalcio è spesso cognome + iniziale: il primo token è in genere il più discriminante.
+    return toks
+
+
+def _find_player_windows(page_text, player_name, radius=260):
+    if not page_text:
+        return []
+    low = _norm_search(page_text)
+    terms = _player_search_terms(player_name)
+    if not terms:
+        return []
+    primary = terms[0]
+    windows = []
+    start = 0
+    while True:
+        i = low.find(primary, start)
+        if i < 0:
+            break
+        w = low[max(0, i-radius):min(len(low), i+radius)]
+        # Se ci sono più token significativi, pretendili nello stesso contesto.
+        if all(t in w for t in terms[1:]):
+            windows.append(w)
+        start = i + len(primary)
+        if len(windows) >= 8:
+            break
+    return windows
+
+
+@st.cache_data(ttl=600, show_spinner=False)
+def fetch_fantacalcio_operational_status(player_name, team_name):
+    """Stato rigoroso: infortuni + probabili formazioni Fantacalcio. Le news NON decidono lo stato."""
+    injuries_url = "https://www.fantacalcio.it/serie-a/infortunati"
+    probable_url = "https://www.fantacalcio.it/probabili-formazioni-serie-a"
+
+    injuries_text, err_i = _fetch_public_page_text(injuries_url)
+    probable_text, err_p = _fetch_public_page_text(probable_url)
+
+    iw = _find_player_windows(injuries_text, player_name)
+    pw = _find_player_windows(probable_text, player_name)
+
+    result = {
+        "status": "⚪ Da verificare",
+        "confidence": "NON CONFERMATO",
+        "reason": "Nessuna evidenza abbastanza forte nelle fonti operative.",
+        "titolarita_live": "DA VERIFICARE",
+        "percentage": None,
+        "sources": [],
+        "errors": [x for x in (err_i, err_p) if x],
+    }
+
+    # 1) Infortunati/indisponibili ha priorità assoluta.
+    if iw:
+        joined = " ".join(iw)
+        hard_out = (
+            " out ", "indisponibile", "lesione", "frattura", "operato", "operazione",
+            "rottura", "ai box", "fuori causa", "non disponibile", "squalificato",
+            "rientro da", "rientro dalla", "rientro inizio", "rientro metà", "rientro fine"
+        )
+        doubt = (
+            "da valutare", "a rischio", "in dubbio", "affaticamento", "risentimento",
+            "problema", "noie", "monitorato", "monitorate", "recupero"
+        )
+        if any(k in joined for k in hard_out):
+            # Se nello stesso contesto si parla esplicitamente di valutazione per il prossimo turno,
+            # classifica dubbio invece di OUT definitivo.
+            if any(k in joined for k in ("da valutare", "a rischio", "in dubbio")) and not any(k in joined for k in ("out contro", "assente", "non disponibile")):
+                result.update(status="⚠️ Dubbio", confidence="ALTA", reason="Presente nell'elenco infortunati/indisponibili con condizioni da valutare.")
+            else:
+                result.update(status="⛔ OUT", confidence="ALTA", reason="Presente nell'elenco Fantacalcio infortunati/indisponibili.")
+        elif any(k in joined for k in doubt):
+            result.update(status="⚠️ Dubbio", confidence="ALTA", reason="Fantacalcio segnala condizioni da valutare.")
+        else:
+            result.update(status="⚠️ Dubbio", confidence="MEDIA", reason="Il giocatore compare nell'elenco infortunati/indisponibili.")
+        result["sources"].append(("Fantacalcio — Infortunati", injuries_url))
+
+    # 2) Probabili: ricava percentuale/titolarità e conferma disponibilità solo se il giocatore compare davvero.
+    if pw:
+        joined_p = " ".join(pw)
+        percentages = [int(x) for x in re.findall(r"(?:^|\\s)(\\d{1,3})\\s*%", joined_p) if 0 <= int(x) <= 100]
+        pct = max(percentages) if percentages else None
+        if pct is not None:
+            result["percentage"] = pct
+            if pct >= 70:
+                result["titolarita_live"] = f"PROBABILE TITOLARE {pct}%"
+            elif pct >= 40:
+                result["titolarita_live"] = f"BALLOTTAGGIO {pct}%"
+            else:
+                result["titolarita_live"] = f"PANCHINA / CHANCE {pct}%"
+        elif "panchina" in joined_p:
+            result["titolarita_live"] = "PANCHINA PROBABILE"
+        elif "ballottaggio" in joined_p:
+            result["titolarita_live"] = "BALLOTTAGGIO"
+        else:
+            result["titolarita_live"] = "PRESENTE NELLE PROBABILI"
+
+        result["sources"].append(("Fantacalcio — Probabili formazioni", probable_url))
+
+        # Se non c'è nessun segnale medico negativo e compare nelle probabili, è disponibile.
+        if not iw:
+            result.update(
+                status="✅ Disponibile",
+                confidence="ALTA",
+                reason="Presente nelle probabili formazioni Fantacalcio e non presente tra gli indisponibili."
+            )
+
+    # Nessuna classificazione positiva solo per assenza dall'elenco infortuni.
+    return result
+
+
 @st.cache_data(ttl=900, show_spinner=False)
 def fetch_player_news(player_name, team_name, limit=5, max_age_days=14):
     """News rigorose: solo giocatore selezionato, solo articoli recenti, timeout breve."""
@@ -2243,7 +2376,7 @@ def fetch_player_news(player_name, team_name, limit=5, max_age_days=14):
     cutoff = now - timedelta(days=max_age_days)
 
     try:
-        req = Request(url, headers={"User-Agent":"Mozilla/5.0 FantaMossa/3.34.2.2"})
+        req = Request(url, headers={"User-Agent":"Mozilla/5.0 FantaMossa/3.34.3.2"})
         with urlopen(req, timeout=2.8) as resp:
             data = resp.read()
 
@@ -2442,7 +2575,7 @@ def recommended_lineups():
 def render_rosa_status():
     fm_page(
         "🩺 Stato giocatori",
-        "Stato automatico, titolarità e notizie recenti dei tuoi 25 giocatori."
+        "Stato operativo rigoroso, titolarità e notizie recenti dei tuoi 25 giocatori."
     )
     roster = [dict(x) for x in S.get("roster", [])]
     if not roster:
@@ -2454,82 +2587,66 @@ def render_rosa_status():
     p = next(x for x in roster if x["name"] == pick)
     row = _roster_row(p)
 
-    info = (
-        player_intel(row)
-        if row is not None
-        else {
-            "titolarita": "DA VERIFICARE",
-            "confidence": "DA VERIFICARE",
-            "summary": "Dati non disponibili.",
-        }
-    )
+    info = player_intel(row) if row is not None else {
+        "titolarita":"DA VERIFICARE", "confidence":"DA VERIFICARE", "summary":"Dati non disponibili."
+    }
     score, _, slot, rank, total, _ = _lineup_score(p)
 
     c1, c2, c3 = st.columns(3)
     c1.metric("Slot", f"{slot}°")
     c2.metric("Rank ruolo", f"#{rank}/{total}")
-    c3.metric("Titolarità", str(info.get("titolarita", "DA VERIFICARE")))
+    c3.metric("Gerarchia base", str(info.get("titolarita", "DA VERIFICARE")))
+    st.caption(f"Affidabilità gerarchia base: {info.get('confidence','DA VERIFICARE')} • {info.get('summary','')}")
+
+    st.markdown("### 🩺 Stato operativo")
     st.caption(
-        f"Affidabilità gerarchia: {info.get('confidence','DA VERIFICARE')} • "
-        f"{info.get('summary','')}"
+        "Lo stato NON viene dedotto dalle news. Usa Fantacalcio Infortunati/Indisponibili e Probabili formazioni. "
+        "Se non c'è conferma sufficiente resta Da verificare."
     )
 
-    st.markdown("### 🩺 Stato operativo automatico")
+    if st.button("🔎 VERIFICA STATO OPERATIVO", width="stretch", key=f"op_{_norm_search(pick)}"):
+        with st.spinner("Controllo fonti operative…"):
+            op = fetch_fantacalcio_operational_status(pick, p.get("team", ""))
+        st.session_state.setdefault("auto_player_status", {})[pick] = op["status"]
+        st.session_state.setdefault("auto_player_status_detail", {})[pick] = op
 
-    # Stato già calcolato per questa sessione.
-    auto_map = st.session_state.setdefault("auto_player_status", {})
-    detail_map = st.session_state.setdefault("auto_player_status_detail", {})
-    current_status = auto_map.get(pick, "⚪ Da verificare")
-    current_detail = detail_map.get(
-        pick,
-        {
-            "confidence": "NON AGGIORNATO",
-            "reason": "Premi “Verifica stato e notizie” per controllare le fonti recenti.",
-        },
-    )
-
-    if current_status == "✅ Disponibile":
-        st.success(f"{current_status} • affidabilità {current_detail.get('confidence','')}")
-    elif current_status == "⚠️ Dubbio":
-        st.warning(f"{current_status} • affidabilità {current_detail.get('confidence','')}")
-    elif current_status == "⛔ OUT":
-        st.error(f"{current_status} • affidabilità {current_detail.get('confidence','')}")
+    op = st.session_state.setdefault("auto_player_status_detail", {}).get(pick)
+    if op is None:
+        st.info("⚪ Da verificare • premi “Verifica stato operativo”.")
     else:
-        st.info(f"{current_status} • {current_detail.get('confidence','')}")
+        status = op.get("status", "⚪ Da verificare")
+        conf = op.get("confidence", "")
+        if status == "✅ Disponibile":
+            st.success(f"{status} • affidabilità {conf}")
+        elif status == "⚠️ Dubbio":
+            st.warning(f"{status} • affidabilità {conf}")
+        elif status == "⛔ OUT":
+            st.error(f"{status} • affidabilità {conf}")
+        else:
+            st.info(f"{status} • {conf}")
+        st.caption(op.get("reason", ""))
+        st.markdown(f"**Titolarità giornata:** {op.get('titolarita_live','DA VERIFICARE')}")
+        if op.get("percentage") is not None:
+            st.caption(f"Percentuale rilevata nelle probabili: {op['percentage']}%")
+        for label, url in op.get("sources", []):
+            st.markdown(f"[{label}]({url})")
+        if op.get("errors"):
+            st.caption("Una fonte non ha risposto: classificazione mantenuta conservativa.")
 
-    st.caption(current_detail.get("reason", ""))
+    st.markdown("### 📰 Ultime notizie sul giocatore")
+    st.caption("Solo articoli degli ultimi 14 giorni. Le news sono informative e NON modificano lo stato operativo.")
 
-    st.markdown("### 📰 Ultime notizie")
-    st.caption(
-        "Solo articoli degli ultimi 14 giorni che citano il giocatore selezionato. "
-        "Se non ci sono prove recenti sufficienti, l'app non inventa lo stato."
-    )
-
-    if st.button(
-        "🔄 VERIFICA STATO E NOTIZIE",
-        width="stretch",
-        key=f"news_{_norm_search(pick)}",
-    ):
-        with st.spinner("Controllo fonti recenti…"):
+    if st.button("🔄 AGGIORNA NOTIZIE", width="stretch", key=f"news_{_norm_search(pick)}"):
+        with st.spinner("Cerco solo notizie recenti sul giocatore…"):
             news, err = fetch_player_news(pick, p.get("team", ""), 5, 14)
-
-        st.session_state["news_result"] = {
-            "player": pick,
-            "items": news,
-            "err": err,
-        }
-
-        if not err:
-            inferred = infer_player_status(news)
-            auto_map[pick] = inferred["status"]
-            detail_map[pick] = inferred
+        st.session_state["news_result"] = {"player": pick, "items": news, "err": err}
 
     nr = st.session_state.get("news_result", {})
     if nr.get("player") == pick:
         if nr.get("err"):
-            st.warning("Non riesco a controllare le fonti in questo momento. Stato lasciato da verificare.")
+            st.warning("Le notizie non sono disponibili in questo momento.")
         elif not nr.get("items"):
-            st.info("Nessuna notizia recente verificata su questo giocatore negli ultimi 14 giorni.")
+            st.info("Nessuna notizia recente specifica sul giocatore negli ultimi 14 giorni.")
         else:
             for n in nr["items"]:
                 title = str(n.get("title", "")).replace("[", "［").replace("]", "］")
@@ -2543,22 +2660,167 @@ def render_rosa_status():
                 st.caption(f"{source} • {date_label}")
 
 
+def _pitch_player_name(name):
+    """Nome compatto per la lavagnetta mobile."""
+    name = str(name or "").strip()
+    if len(name) <= 14:
+        return name
+    parts = name.split()
+    if len(parts) > 1:
+        compact = f"{parts[0]} {parts[-1][0]}."
+        if len(compact) <= 14:
+            return compact
+    return name[:13] + "…"
+
+
+def _pitch_status_class(state):
+    state = str(state or "")
+    if "OUT" in state:
+        return "out"
+    if "Dubbio" in state:
+        return "doubt"
+    if "Disponibile" in state:
+        return "ok"
+    return "unknown"
+
+
+def _render_pitch_line(players, css_class):
+    chips = []
+    for score, p, info, slot, rank, total, state in players:
+        safe_name = html.escape(_pitch_player_name(p.get("name", "")))
+        safe_team = html.escape(str(p.get("team", "")))
+        state_class = _pitch_status_class(state)
+        chips.append(
+            f'<div class="fm-pitch-player {state_class}">'
+            f'<div class="fm-shirt">●</div>'
+            f'<div class="fm-pitch-name">{safe_name}</div>'
+            f'<div class="fm-pitch-team">{safe_team}</div>'
+            f'</div>'
+        )
+    return f'<div class="fm-pitch-line {css_class}">' + "".join(chips) + '</div>'
+
+
 def render_lineup_advisor():
-    fm_page("🧩 Formazione giornata", "Tre moduli consigliati usando stato operativo, titolarità, slot e valore dei tuoi giocatori.")
-    results=recommended_lineups()
+    fm_page(
+        "🧩 Formazione giornata",
+        "Scegli uno dei 3 moduli consigliati e visualizza direttamente gli undici sul campo."
+    )
+    results = recommended_lineups()
     if not results:
         st.warning("Non ci sono abbastanza giocatori disponibili per costruire una formazione valida. Controlla gli OUT.")
         return
-    for i,res in enumerate(results,1):
-        st.markdown(f"### {i}. {res['formation']} • indice {res['score']}")
-        if res['doubts']:
-            st.warning(f"⚠️ {res['doubts']} dubbio/i nella formazione.")
-        if res['unverified']:
-            st.caption(f"{res['unverified']} titolarità ancora da verificare.")
-        rows=[]
-        for score,p,info,slot,rank,total,state in res['starters']:
-            rows.append({"Ruolo":p['role'],"Giocatore":p['name'],"Squadra":p['team'],"Stato":state,"Titolarità":info.get('titolarita','DA VERIFICARE'),"Slot":f"{slot}°","FVM":p.get('fvm',0)})
-        st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
+
+    result_map = {r["formation"]: r for r in results}
+    options = list(result_map.keys())
+    selected = st.segmented_control(
+        "Modulo consigliato",
+        options,
+        default=options[0],
+        key="lineup_formation_pick",
+        label_visibility="collapsed",
+    )
+    if selected not in result_map:
+        selected = options[0]
+    res = result_map[selected]
+
+    # Riepilogo rapido del modulo selezionato.
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Modulo", res["formation"])
+    m2.metric("Indice XI", f'{res["score"]:.0f}')
+    m3.metric("Dubbi", res["doubts"])
+
+    starters = res["starters"]
+    by_role = {"POR": [], "DIF": [], "CEN": [], "ATT": []}
+    for item in starters:
+        by_role.setdefault(item[1].get("role"), []).append(item)
+
+    # CSS lavagnetta: responsive e senza immagini esterne.
+    st.markdown("""
+    <style>
+    .fm-pitch-wrap{
+        margin:.55rem 0 .8rem;
+        border:2px solid rgba(245,226,164,.75);
+        border-radius:22px;
+        overflow:hidden;
+        box-shadow:0 8px 24px rgba(0,0,0,.18);
+        background:#176b45;
+    }
+    .fm-pitch{
+        position:relative;
+        min-height:640px;
+        padding:24px 10px 20px;
+        display:flex;
+        flex-direction:column;
+        justify-content:space-between;
+        background:
+          linear-gradient(rgba(255,255,255,.08),rgba(255,255,255,.08)),
+          repeating-linear-gradient(0deg,#176b45 0,#176b45 78px,#1b744b 78px,#1b744b 156px);
+    }
+    .fm-pitch:before{
+        content:"";position:absolute;inset:12px;border:2px solid rgba(255,255,255,.78);border-radius:4px;pointer-events:none
+    }
+    .fm-pitch:after{
+        content:"";position:absolute;left:50%;top:50%;width:92px;height:92px;
+        border:2px solid rgba(255,255,255,.78);border-radius:50%;transform:translate(-50%,-50%);pointer-events:none
+    }
+    .fm-halfway{position:absolute;left:12px;right:12px;top:50%;border-top:2px solid rgba(255,255,255,.78)}
+    .fm-box-top,.fm-box-bottom{position:absolute;left:25%;right:25%;height:74px;border:2px solid rgba(255,255,255,.78)}
+    .fm-box-top{top:12px;border-top:0}.fm-box-bottom{bottom:12px;border-bottom:0}
+    .fm-pitch-line{position:relative;z-index:3;display:flex;justify-content:space-evenly;align-items:center;gap:4px;width:100%;min-height:112px}
+    .fm-pitch-player{width:78px;text-align:center;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.75)}
+    .fm-shirt{width:42px;height:42px;display:flex;align-items:center;justify-content:center;margin:0 auto 4px;border-radius:50%;
+        background:#f5e2a4;color:#0b2d24;border:2px solid #fff;font-size:1.1rem;box-shadow:0 3px 8px rgba(0,0,0,.28)}
+    .fm-pitch-player.doubt .fm-shirt{background:#f3b64b}.fm-pitch-player.out .fm-shirt{background:#e75c55}.fm-pitch-player.unknown .fm-shirt{background:#d8ddd9}
+    .fm-pitch-name{font-size:.72rem;font-weight:950;line-height:1.05;white-space:normal;word-break:break-word}
+    .fm-pitch-team{font-size:.54rem;opacity:.86;margin-top:2px}
+    .fm-pitch-legend{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;padding:8px 10px;background:#0d3f30;color:#e8eee9;font-size:.68rem}
+    @media(max-width:700px){
+      .fm-pitch{min-height:565px;padding:18px 4px 16px}.fm-pitch-line{min-height:96px;gap:1px}
+      .fm-pitch-player{width:62px}.fm-shirt{width:35px;height:35px;font-size:.95rem}
+      .fm-pitch-name{font-size:.63rem}.fm-pitch-team{font-size:.48rem}
+      .fm-pitch:after{width:76px;height:76px}.fm-box-top,.fm-box-bottom{height:62px}
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    pitch_html = (
+        '<div class="fm-pitch-wrap"><div class="fm-pitch">'
+        '<div class="fm-halfway"></div><div class="fm-box-top"></div><div class="fm-box-bottom"></div>'
+        + _render_pitch_line(by_role["ATT"], "attack")
+        + _render_pitch_line(by_role["CEN"], "midfield")
+        + _render_pitch_line(by_role["DIF"], "defence")
+        + _render_pitch_line(by_role["POR"], "goalkeeper")
+        + '</div><div class="fm-pitch-legend">'
+          '<span>🟡 Disponibile</span><span>🟠 Dubbio</span><span>⚪ Da verificare</span>'
+          '</div></div>'
+    )
+    st.markdown(pitch_html, unsafe_allow_html=True)
+
+    if res["doubts"]:
+        st.warning(f"⚠️ {res['doubts']} giocatore/i in dubbio nell’XI selezionato.")
+    if res["unverified"]:
+        st.caption(f"⚪ {res['unverified']} gerarchie/titolarità ancora da verificare.")
+
+    # Panchina: tutti i non titolari, ordinati con lo stesso punteggio del motore formazione.
+    starter_names = {str(x[1].get("name", "")) for x in starters}
+    bench = []
+    for p in [dict(x) for x in S.get("roster", [])]:
+        if str(p.get("name", "")) in starter_names:
+            continue
+        score, info, slot, rank, total, state = _lineup_score(p)
+        if state != "⛔ OUT":
+            bench.append((score, p, info, slot, state))
+    bench.sort(key=lambda x: x[0], reverse=True)
+
+    with st.expander("🪑 Panchina consigliata", expanded=False):
+        if not bench:
+            st.caption("Nessun altro giocatore disponibile.")
+        else:
+            for _, p, info, slot, state in bench[:10]:
+                st.markdown(
+                    f"**{p.get('role','')} • {p.get('name','')}** — {p.get('team','')}  \n"
+                    f"{state} • {slot}° slot"
+                )
 
 def render_rosa():
     """Rosa separata dalla Dashboard: elenco completo e riepilogo per ruolo."""
@@ -2917,7 +3179,7 @@ def render_storico():
 
 
 
-# v3.34.2 — Tre mondi principali separati: Dashboard, Rosa, Asta.
+# v3.35.0 — Tre mondi principali separati: Dashboard, Rosa, Asta.
 main_area = st.segmented_control(
     "Mondo principale", ["📊 Dashboard", "👕 Rosa", "🔥 Asta"],
     default="📊 Dashboard", key="fm_main_nav", label_visibility="collapsed"
