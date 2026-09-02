@@ -1,4 +1,4 @@
-# VERSIONE v4.1.2 FANTAMOSSA - PITCH MOBILE POLISH
+# VERSIONE v4.1.3 FANTAMOSSA - TITOLARITA PARSER FIX
 # FC Jigen - file corretto per GitHub
 
 import re
@@ -2823,6 +2823,32 @@ def _find_player_windows(page_text, player_name, radius=220):
     return windows
 
 
+def _nearest_percentage(window, player_name, max_distance=95):
+    """Prende la % più vicina al nome nella stessa finestra, evitando valori lontani."""
+    if not window:
+        return None
+    terms = _player_search_terms(player_name)
+    if not terms:
+        return None
+    primary = terms[0]
+    pos = window.find(primary)
+    if pos < 0:
+        return None
+
+    candidates = []
+    for m in re.finditer(r"(\d{1,3})\s*%", window):
+        value = int(m.group(1))
+        if not 0 <= value <= 100:
+            continue
+        distance = abs(m.start() - pos)
+        if distance <= max_distance:
+            candidates.append((distance, value))
+    if not candidates:
+        return None
+    candidates.sort(key=lambda x: x[0])
+    return candidates[0][1]
+
+
 @st.cache_data(ttl=600, show_spinner=False)
 def fetch_fantacalcio_operational_status(player_name, team_name):
     """Stato rigoroso: infortuni + probabili formazioni Fantacalcio. Le news NON decidono lo stato."""
@@ -2873,8 +2899,7 @@ def fetch_fantacalcio_operational_status(player_name, team_name):
     # 2) Probabili: ricava percentuale/titolarità e conferma disponibilità solo se il giocatore compare davvero.
     if pw:
         joined_p = " ".join(pw)
-        percentages = [int(x) for x in re.findall(r"(?:^|\\s)(\\d{1,3})\\s*%", joined_p) if 0 <= int(x) <= 100]
-        pct = max(percentages) if percentages else None
+        pct = next((p for p in (_nearest_percentage(w, player_name) for w in pw) if p is not None), None)
         if pct is not None:
             result["percentage"] = pct
             if pct >= 70:
@@ -2928,9 +2953,8 @@ def fetch_roster_lineup_live(roster_signature):
         # della stessa finestra (tipico ballottaggio espresso con più percentuali).
         pct = None
         for w in windows:
-            vals = [int(x) for x in re.findall(r"(?:^|\\s)(\\d{1,3})\\s*%", w) if 0 <= int(x) <= 100]
-            if vals:
-                pct = max(vals)
+            pct = _nearest_percentage(w, player_name)
+            if pct is not None:
                 break
 
         joined = " ".join(windows)
@@ -3343,20 +3367,37 @@ def _starter_probability(player, info=None):
         row = _roster_row(player)
         info = player_intel(row) if row is not None else {}
 
-    confidence = str(info.get("confidence", "")).upper()
-    tit = str(info.get("titolarita", "")).upper()
-    # Solo gerarchie esplicitamente verificate: la tilde indica che NON è una percentuale live.
+    confidence = str(info.get("confidence", "")).upper().strip()
+    tit = str(info.get("titolarita", "")).upper().strip()
+
+    # Fallback SOLO su gerarchie dichiarate VERIFICATE.
+    # Queste sono stime e vengono sempre mostrate con "~".
     if "VERIFIC" in confidence:
-        mapping = {
+        exact_mapping = {
             "ALTISSIMA": 95,
             "ALTA": 85,
             "MEDIO-ALTA": 70,
+            "MEDIO ALTA": 70,
             "MEDIA": 55,
+            "MEDIO-BASSA": 40,
+            "MEDIO BASSA": 40,
             "BASSA": 30,
         }
-        for key, value in mapping.items():
-            if key in tit:
-                return value, True, "GERARCHIA"
+        if tit in exact_mapping:
+            return exact_mapping[tit], True, "GERARCHIA"
+
+        # Gestisce descrizioni più lunghe senza confondere MEDIO-ALTA con ALTA.
+        if "ALTISSIMA" in tit:
+            return 95, True, "GERARCHIA"
+        if "MEDIO-ALTA" in tit or "MEDIO ALTA" in tit:
+            return 70, True, "GERARCHIA"
+        if tit == "ALTA" or tit.startswith("ALTA "):
+            return 85, True, "GERARCHIA"
+        if "MEDIA" in tit:
+            return 55, True, "GERARCHIA"
+        if "BASSA" in tit:
+            return 30, True, "GERARCHIA"
+
     return None, False, "N/D"
 
 
@@ -3561,7 +3602,7 @@ def render_lineup_advisor():
         if not any_bench:
             st.caption("Nessun altro giocatore disponibile.")
 
-    st.caption("% senza ~ = rilevata dalle probabili. % con ~ = stima da gerarchia verificata. N/D = dato non sufficientemente verificato.")
+    st.caption("% senza ~ = dato rilevato dalle probabili. % con ~ = stima da gerarchia verificata. N/D compare solo quando non esiste ancora un dato sufficientemente affidabile.")
 
 
 
