@@ -1,4 +1,4 @@
-# VERSIONE v4.0.1 FANTAMOSSA - ASTA TOOL HUB
+# VERSIONE v4.0.2 FANTAMOSSA - MOBILE ROSTER DETAILS
 # FC Jigen - file corretto per GitHub
 
 import re
@@ -2224,6 +2224,96 @@ def _app_player_card(name, role, team, price, fvm, slot, strength=None):
 def _app_role_icon(role):
     return {"POR":"🧤", "DIF":"🛡️", "CEN":"⚙️", "ATT":"🎯"}.get(str(role), "👤")
 
+
+def _render_mobile_roster_details(rdf, include_titolarita=True):
+    """Rosa tecnica leggibile su mobile: niente tabelle orizzontali."""
+    role_labels = {
+        "POR": "🧤 Portieri",
+        "DIF": "🛡️ Difensori",
+        "CEN": "⚙️ Centrocampisti",
+        "ATT": "🎯 Attaccanti",
+    }
+
+    st.markdown("""
+    <style>
+    .fm-tech-role{margin:14px 0 7px;font-size:.92rem;font-weight:950;color:#f5e2a4}
+    .fm-tech-list{display:flex;flex-direction:column;gap:7px;margin-bottom:12px}
+    .fm-tech-player{
+        display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;
+        background:linear-gradient(145deg,#123a2f,#0d2f27);
+        border:1px solid rgba(217,184,95,.24);
+        border-radius:14px;padding:10px 11px;
+        box-shadow:0 3px 10px rgba(0,0,0,.10)
+    }
+    .fm-tech-name{font-size:.94rem;font-weight:950;color:#fff;line-height:1.08}
+    .fm-tech-meta{margin-top:4px;font-size:.69rem;color:#bfcfc7;line-height:1.25}
+    .fm-tech-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+    .fm-tech-chip{
+        display:inline-flex;align-items:center;gap:3px;
+        padding:3px 7px;border-radius:999px;
+        background:rgba(255,255,255,.075);
+        border:1px solid rgba(255,255,255,.09);
+        color:#e8efeb;font-size:.62rem;font-weight:800
+    }
+    .fm-tech-chip.gold{background:rgba(217,184,95,.14);border-color:rgba(217,184,95,.28);color:#f5e2a4}
+    .fm-tech-side{text-align:right;min-width:58px}
+    .fm-tech-side b{display:block;color:#f5e2a4;font-size:1.02rem;line-height:1}
+    .fm-tech-side small{display:block;color:#9fb3aa;font-size:.56rem;text-transform:uppercase;margin-top:4px}
+    @media(max-width:700px){
+        .fm-tech-player{padding:10px}
+        .fm-tech-name{font-size:.90rem}
+        .fm-tech-meta{font-size:.66rem}
+        .fm-tech-chip{font-size:.59rem;padding:3px 6px}
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    for role in ["POR","DIF","CEN","ATT"]:
+        sub = rdf[rdf["Ruolo"].eq(role)].copy()
+        if sub.empty:
+            continue
+
+        # Migliori prima dentro ogni reparto.
+        sort_cols = [c for c in ["Forza","FVM"] if c in sub.columns]
+        if sort_cols:
+            sub = sub.sort_values(sort_cols, ascending=[False]*len(sort_cols))
+
+        st.markdown(f'<div class="fm-tech-role">{role_labels[role]} · {len(sub)}</div>', unsafe_allow_html=True)
+
+        rows = []
+        for _, r in sub.iterrows():
+            name = html.escape(str(r.get("Nome","")))
+            team = html.escape(str(r.get("Squadra","")))
+            price = int(r.get("Prezzo",0) or 0)
+            fvm = int(r.get("FVM",0) or 0)
+            slot = r.get("Slot","")
+            forza = int(r.get("Forza",0) or 0)
+
+            tit = ""
+            if include_titolarita and "Titolarità" in sub.columns:
+                raw_tit = r.get("Titolarità","")
+                tit = str(raw_tit).strip() if raw_tit is not None else ""
+
+            chips = [
+                f'<span class="fm-tech-chip gold">💎 FVM {fvm}</span>',
+                f'<span class="fm-tech-chip">💰 {price} cr</span>',
+                f'<span class="fm-tech-chip">🎟️ {html.escape(str(slot))}° slot</span>',
+            ]
+            if tit and tit.lower() not in ("nan","none",""):
+                chips.append(f'<span class="fm-tech-chip">📈 Tit. {html.escape(tit)}</span>')
+
+            rows.append(
+                '<div class="fm-tech-player">'
+                    '<div>'
+                        f'<div class="fm-tech-name">{name}</div>'
+                        f'<div class="fm-tech-meta">{team} · {role}</div>'
+                        f'<div class="fm-tech-chips">{"".join(chips)}</div>'
+                    '</div>'
+                    f'<div class="fm-tech-side"><b>{forza}</b><small>forza /100</small></div>'
+                '</div>'
+            )
+        st.markdown('<div class="fm-tech-list">' + ''.join(rows) + '</div>', unsafe_allow_html=True)
+
 def render_dashboard():
     """Home mobile-first: leggibile a colpo d'occhio e senza rete."""
     fm_page("🏠 FC Jigen", "La tua centrale di controllo per FANTACHILL 2026/27.")
@@ -2335,8 +2425,14 @@ def render_dashboard():
 
     with st.expander("📋 ROSA COMPLETA · DATI TECNICI", expanded=False):
         detail=rdf[["Nome","Ruolo","Squadra","Prezzo","FVM","Slot","Forza","Titolarità"]].copy()
-        st.dataframe(detail,hide_index=True,width="stretch")
-        st.download_button("⬇️ ESPORTA ROSA CSV",detail.to_csv(index=False).encode(),file_name="rosa_fc_jigen.csv",mime="text/csv",width="stretch")
+        _render_mobile_roster_details(detail, include_titolarita=True)
+        st.download_button(
+            "⬇️ ESPORTA ROSA CSV",
+            detail.to_csv(index=False).encode(),
+            file_name="rosa_fc_jigen.csv",
+            mime="text/csv",
+            width="stretch"
+        )
 
 @st.cache_data(ttl=600, show_spinner=False)
 def _fetch_public_page_text(url):
@@ -3364,9 +3460,16 @@ def render_rosa():
             cards.append(_app_player_card(r.Nome,r.Ruolo,r.Squadra,r.Prezzo,r.FVM,r.Slot,r.Forza))
         st.markdown('<div class="app-player-grid">'+''.join(cards)+'</div>',unsafe_allow_html=True)
 
-    with st.expander("📋 TABELLA TECNICA / ESPORTA",expanded=False):
-        st.dataframe(rdf[["Nome","Ruolo","Squadra","Prezzo","FVM","Slot","Forza"]],hide_index=True,width="stretch")
-        st.download_button("⬇️ ESPORTA ROSA CSV",rdf.to_csv(index=False).encode(),file_name="rosa_fc_jigen.csv",mime="text/csv",width="stretch")
+    with st.expander("📋 DETTAGLI TECNICI / ESPORTA", expanded=False):
+        technical = rdf[["Nome","Ruolo","Squadra","Prezzo","FVM","Slot","Forza"]].copy()
+        _render_mobile_roster_details(technical, include_titolarita=False)
+        st.download_button(
+            "⬇️ ESPORTA ROSA CSV",
+            rdf.to_csv(index=False).encode(),
+            file_name="rosa_fc_jigen.csv",
+            mime="text/csv",
+            width="stretch"
+        )
 
 def render_piano():
     fm_page("🎯 Piano Asta", "Budget per ruolo, target, alternative e gestione degli arrivi dell’ultimo minuto.")
