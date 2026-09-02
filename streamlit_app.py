@@ -1,4 +1,4 @@
-# VERSIONE v3.34.1 FANTAMOSSA - ROSA STATUS FIX
+# VERSIONE v3.34.2 FANTAMOSSA - AUTO STATUS + RECENT NEWS
 # FC Jigen - file corretto per GitHub
 
 import re
@@ -10,6 +10,7 @@ import pandas as pd
 import json, statistics, hashlib
 import unicodedata
 import xml.etree.ElementTree as ET
+from email.utils import parsedate_to_datetime
 from urllib.parse import quote_plus
 
 def _norm_search(s):
@@ -74,7 +75,7 @@ def smart_player_mask(df, query):
 
     return mask
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from urllib.request import Request, urlopen
 from urllib.parse import urlencode
 from urllib.error import HTTPError, URLError
@@ -1828,7 +1829,7 @@ st.markdown(
 
 with st.sidebar:
     st.header("⚙️ FantaMossa")
-    st.caption("Controlli rapidi • v3.34.1")
+    st.caption("Controlli rapidi • v3.34.2")
     st.button("☁️ SALVA ORA", width="stretch", on_click=_quick_cloud_save, key="sidebar_quick_save")
     st.button("↩️ ANNULLA ULTIMA", width="stretch", on_click=_quick_undo, key="sidebar_quick_undo")
     quick_sidebar_notice=st.session_state.pop("_quick_notice",None)
@@ -2219,25 +2220,158 @@ def render_dashboard():
 
 
 @st.cache_data(ttl=900, show_spinner=False)
-def fetch_player_news(player_name, team_name, limit=5):
-    """Notizie on-demand: una sola ricerca per giocatore, timeout breve anti-freeze."""
-    query = f'"{player_name}" "{team_name}" fantacalcio calcio'
+def fetch_player_news(player_name, team_name, limit=5, max_age_days=14):
+    """News rigorose: solo giocatore selezionato, solo articoli recenti, timeout breve."""
+    player_name = str(player_name or "").strip()
+    team_name = str(team_name or "").strip()
+
+    # Cerca il giocatore esatto + squadra. Il filtro locale sotto è comunque obbligatorio.
+    query = f'"{player_name}" "{team_name}"'
     url = "https://news.google.com/rss/search?q=" + quote_plus(query) + "&hl=it&gl=IT&ceid=IT:it"
+
+    # Token utili del nome. Ignora iniziali singole / punteggiatura.
+    name_tokens = [
+        t for t in _norm_search(player_name).split()
+        if len(t) >= 3
+    ]
+    team_tokens = [
+        t for t in _norm_search(team_name).split()
+        if len(t) >= 3
+    ]
+
+    now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(days=max_age_days)
+
     try:
-        req = Request(url, headers={"User-Agent":"Mozilla/5.0 FantaMossa/3.34"})
-        with urlopen(req, timeout=4.0) as resp:
+        req = Request(url, headers={"User-Agent":"Mozilla/5.0 FantaMossa/3.34.2.2"})
+        with urlopen(req, timeout=2.8) as resp:
             data = resp.read()
+
         root = ET.fromstring(data)
-        out=[]
-        for item in root.findall('.//item')[:limit]:
-            title=(item.findtext('title') or '').strip()
-            link=(item.findtext('link') or '').strip()
-            pub=(item.findtext('pubDate') or '').strip()
-            if title:
-                out.append({"title":title,"link":link,"pubDate":pub})
-        return out, ""
+        out = []
+
+        for item in root.findall(".//item"):
+            title = (item.findtext("title") or "").strip()
+            link = (item.findtext("link") or "").strip()
+            pub_raw = (item.findtext("pubDate") or "").strip()
+            if not title:
+                continue
+
+            title_norm = _norm_search(title)
+
+            # Deve parlare davvero del giocatore selezionato.
+            # Per nomi abbreviati basta il cognome significativo, ma la squadra
+            # aiuta a scartare omonimi/risultati generici.
+            if name_tokens and not all(tok in title_norm for tok in name_tokens):
+                continue
+
+            if len(name_tokens) == 1 and team_tokens:
+                # Se il nome nel listone è solo il cognome, accetta comunque
+                # articoli senza squadra solo se il cognome è molto specifico.
+                surname = name_tokens[0]
+                if surname not in title_norm:
+                    continue
+
+            try:
+                pub_dt = parsedate_to_datetime(pub_raw)
+                if pub_dt.tzinfo is None:
+                    pub_dt = pub_dt.replace(tzinfo=timezone.utc)
+                pub_dt = pub_dt.astimezone(timezone.utc)
+            except Exception:
+                continue
+
+            # Niente articoli vecchi.
+            if pub_dt < cutoff or pub_dt > now + timedelta(hours=2):
+                continue
+
+            # Google News mette spesso la fonte dopo " - ".
+            source = ""
+            clean_title = title
+            if " - " in title:
+                parts = title.rsplit(" - ", 1)
+                if len(parts) == 2:
+                    clean_title, source = parts[0].strip(), parts[1].strip()
+
+            out.append({
+                "title": clean_title,
+                "source": source or "Google News",
+                "link": link,
+                "pubDate": pub_dt,
+                "pubLabel": pub_dt.astimezone().strftime("%d/%m/%Y %H:%M"),
+            })
+
+        # Più recenti prima e senza duplicati di titolo.
+        out.sort(key=lambda x: x["pubDate"], reverse=True)
+        seen = set()
+        deduped = []
+        for n in out:
+            k = _norm_search(n["title"])
+            if not k or k in seen:
+                continue
+            seen.add(k)
+            deduped.append(n)
+            if len(deduped) >= limit:
+                break
+
+        return deduped, ""
+
     except Exception as exc:
         return [], f"{type(exc).__name__}: {exc}"
+
+
+def infer_player_status(news_items):
+    """Stato automatico basato SOLO su segnali espliciti nelle news recenti."""
+    if not news_items:
+        return {
+            "status": "⚪ Da verificare",
+            "confidence": "NESSUNA EVIDENZA RECENTE",
+            "reason": "Nessuna notizia recente sufficientemente specifica.",
+        }
+
+    out_kw = (
+        "lesione", "frattura", "operato", "operazione", "infortunio",
+        "indisponibile", "non convocato", "squalificato", "salta ",
+        "fuori ", " ko ", "stop ", "rottura"
+    )
+    doubt_kw = (
+        "dubbio", "ballottaggio", "affaticamento", "problema",
+        "da valutare", "in forse", "a parte", "personalizzato",
+        "non al meglio", "recupero"
+    )
+    available_kw = (
+        "recuperato", "convocato", "in gruppo", "disponibile",
+        "titolare", "dal 1", "rientra", "rientrato"
+    )
+
+    # Le news sono già ordinate dalla più recente.
+    for n in news_items:
+        t = " " + _norm_search(n.get("title", "")) + " "
+
+        # Segnali di recupero più recenti prevalgono su vecchi infortuni.
+        if any(_norm_search(k) in t for k in available_kw):
+            return {
+                "status": "✅ Disponibile",
+                "confidence": "ALTA",
+                "reason": f"Segnale recente: {n.get('title','')}",
+            }
+        if any(_norm_search(k) in t for k in out_kw):
+            return {
+                "status": "⛔ OUT",
+                "confidence": "ALTA",
+                "reason": f"Segnale recente: {n.get('title','')}",
+            }
+        if any(_norm_search(k) in t for k in doubt_kw):
+            return {
+                "status": "⚠️ Dubbio",
+                "confidence": "MEDIA",
+                "reason": f"Segnale recente: {n.get('title','')}",
+            }
+
+    return {
+        "status": "⚪ Da verificare",
+        "confidence": "NESSUN SEGNALE ESPLICITO",
+        "reason": "Le notizie recenti non contengono indicazioni chiare su disponibilità o infortunio.",
+    }
 
 
 def _title_weight(info):
@@ -2273,7 +2407,7 @@ def _lineup_score(player):
     else:
         info = {"titolarita":"DA VERIFICARE"}
         slot, rank, total, rank_bonus = 8, 999, 999, 0
-    state = S.setdefault("player_status", {}).get(str(player.get("name","")), "✅ Disponibile")
+    state = st.session_state.get("auto_player_status", {}).get(str(player.get("name","")), "⚪ Da verificare")
     status_penalty = -10000 if state == "⛔ OUT" else (-18 if state == "⚠️ Dubbio" else 0)
     return fvm + rank_bonus + _title_weight(info) + status_penalty, info, slot, rank, total, state
 
@@ -2306,46 +2440,107 @@ def recommended_lineups():
 
 
 def render_rosa_status():
-    fm_page("🩺 Stato giocatori", "Notizie on-demand, titolarità e stato operativo dei tuoi 25 giocatori.")
-    roster=[dict(x) for x in S.get("roster",[])]
+    fm_page(
+        "🩺 Stato giocatori",
+        "Stato automatico, titolarità e notizie recenti dei tuoi 25 giocatori."
+    )
+    roster = [dict(x) for x in S.get("roster", [])]
     if not roster:
-        st.info("Rosa vuota."); return
-    names=[p["name"] for p in roster]
-    pick=st.selectbox("Giocatore", names, key="rosa_status_player")
-    p=next(x for x in roster if x["name"]==pick)
-    row=_roster_row(p)
-    info=player_intel(row) if row is not None else {"titolarita":"DA VERIFICARE","confidence":"DA VERIFICARE","summary":"Dati non disponibili."}
-    score,_,slot,rank,total,state=_lineup_score(p)
-    c1,c2,c3=st.columns(3)
+        st.info("Rosa vuota.")
+        return
+
+    names = [p["name"] for p in roster]
+    pick = st.selectbox("Giocatore", names, key="rosa_status_player")
+    p = next(x for x in roster if x["name"] == pick)
+    row = _roster_row(p)
+
+    info = (
+        player_intel(row)
+        if row is not None
+        else {
+            "titolarita": "DA VERIFICARE",
+            "confidence": "DA VERIFICARE",
+            "summary": "Dati non disponibili.",
+        }
+    )
+    score, _, slot, rank, total, _ = _lineup_score(p)
+
+    c1, c2, c3 = st.columns(3)
     c1.metric("Slot", f"{slot}°")
     c2.metric("Rank ruolo", f"#{rank}/{total}")
-    c3.metric("Titolarità", str(info.get("titolarita","DA VERIFICARE")))
-    st.caption(f"Affidabilità gerarchia: {info.get('confidence','DA VERIFICARE')} • {info.get('summary','')}")
+    c3.metric("Titolarità", str(info.get("titolarita", "DA VERIFICARE")))
+    st.caption(
+        f"Affidabilità gerarchia: {info.get('confidence','DA VERIFICARE')} • "
+        f"{info.get('summary','')}"
+    )
 
-    status_options=["✅ Disponibile","⚠️ Dubbio","⛔ OUT"]
-    current=S.setdefault("player_status",{}).get(pick,"✅ Disponibile")
-    idx=status_options.index(current) if current in status_options else 0
-    new_state=st.segmented_control("Stato operativo", status_options, default=status_options[idx], key=f"status_{_norm_search(pick)}")
-    if new_state and new_state != current:
-        S.setdefault("player_status",{})[pick]=new_state
-        persist(); st.success("Stato salvato nel Cloud.")
+    st.markdown("### 🩺 Stato operativo automatico")
+
+    # Stato già calcolato per questa sessione.
+    auto_map = st.session_state.setdefault("auto_player_status", {})
+    detail_map = st.session_state.setdefault("auto_player_status_detail", {})
+    current_status = auto_map.get(pick, "⚪ Da verificare")
+    current_detail = detail_map.get(
+        pick,
+        {
+            "confidence": "NON AGGIORNATO",
+            "reason": "Premi “Verifica stato e notizie” per controllare le fonti recenti.",
+        },
+    )
+
+    if current_status == "✅ Disponibile":
+        st.success(f"{current_status} • affidabilità {current_detail.get('confidence','')}")
+    elif current_status == "⚠️ Dubbio":
+        st.warning(f"{current_status} • affidabilità {current_detail.get('confidence','')}")
+    elif current_status == "⛔ OUT":
+        st.error(f"{current_status} • affidabilità {current_detail.get('confidence','')}")
+    else:
+        st.info(f"{current_status} • {current_detail.get('confidence','')}")
+
+    st.caption(current_detail.get("reason", ""))
 
     st.markdown("### 📰 Ultime notizie")
-    st.caption("Caricamento solo su richiesta per evitare freeze. Le notizie aiutano il controllo, ma lo stato medico va confermato da fonti ufficiali.")
-    if st.button("🔄 Aggiorna notizie", width="stretch", key=f"news_{_norm_search(pick)}"):
-        news, err = fetch_player_news(pick, p.get("team",""), 5)
-        st.session_state["news_result"]={"player":pick,"items":news,"err":err}
-    nr=st.session_state.get("news_result",{})
-    if nr.get("player")==pick:
+    st.caption(
+        "Solo articoli degli ultimi 14 giorni che citano il giocatore selezionato. "
+        "Se non ci sono prove recenti sufficienti, l'app non inventa lo stato."
+    )
+
+    if st.button(
+        "🔄 VERIFICA STATO E NOTIZIE",
+        width="stretch",
+        key=f"news_{_norm_search(pick)}",
+    ):
+        with st.spinner("Controllo fonti recenti…"):
+            news, err = fetch_player_news(pick, p.get("team", ""), 5, 14)
+
+        st.session_state["news_result"] = {
+            "player": pick,
+            "items": news,
+            "err": err,
+        }
+
+        if not err:
+            inferred = infer_player_status(news)
+            auto_map[pick] = inferred["status"]
+            detail_map[pick] = inferred
+
+    nr = st.session_state.get("news_result", {})
+    if nr.get("player") == pick:
         if nr.get("err"):
-            st.warning("Notizie non disponibili in questo momento.")
+            st.warning("Non riesco a controllare le fonti in questo momento. Stato lasciato da verificare.")
         elif not nr.get("items"):
-            st.info("Nessuna notizia recente trovata.")
+            st.info("Nessuna notizia recente verificata su questo giocatore negli ultimi 14 giorni.")
         else:
             for n in nr["items"]:
-                st.markdown(f"**{n['title']}**")
-                if n.get("pubDate"): st.caption(n["pubDate"])
-                if n.get("link"): st.link_button("Apri notizia", n["link"], width="content")
+                title = str(n.get("title", "")).replace("[", "［").replace("]", "］")
+                link = n.get("link", "")
+                source = n.get("source", "Fonte")
+                date_label = n.get("pubLabel", "")
+                if link:
+                    st.markdown(f"**[{title}]({link})**")
+                else:
+                    st.markdown(f"**{title}**")
+                st.caption(f"{source} • {date_label}")
 
 
 def render_lineup_advisor():
@@ -2722,7 +2917,7 @@ def render_storico():
 
 
 
-# v3.34.1 — Tre mondi principali separati: Dashboard, Rosa, Asta.
+# v3.34.2 — Tre mondi principali separati: Dashboard, Rosa, Asta.
 main_area = st.segmented_control(
     "Mondo principale", ["📊 Dashboard", "👕 Rosa", "🔥 Asta"],
     default="📊 Dashboard", key="fm_main_nav", label_visibility="collapsed"
