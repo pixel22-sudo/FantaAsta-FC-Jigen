@@ -1,4 +1,4 @@
-# VERSIONE v3.31.1 FANTAMOSSA - POST-ASTA CLOUD FIX
+# VERSIONE v3.31.2 FANTAMOSSA - POST-ASTA NAV CONTRAST FIX
 # FC Jigen - file corretto per GitHub
 
 import re
@@ -1666,8 +1666,12 @@ div.stButton>button[kind="primary"]{background:var(--fm-gold)!important;color:#0
 /* Navigation: sticky, app-like */
 .st-key-fm_main_nav{position:sticky;top:.2rem;z-index:999;background:#07251d;padding:4px 0 7px;margin:0 0 4px}
 .st-key-fm_main_nav div[role="radiogroup"]{display:flex!important;width:100%!important;gap:5px!important}
-.st-key-fm_main_nav button{flex:1 1 0!important;min-width:0!important;padding:.42rem .12rem!important;font-size:.73rem!important;font-weight:900!important;border-radius:12px!important;border:1px solid rgba(217,184,95,.34)!important;background:#10382d!important;color:var(--fm-text)!important}
-.st-key-fm_main_nav button p{color:inherit!important}.st-key-fm_main_nav button[aria-checked="true"]{background:var(--fm-gold)!important;color:#062019!important;border-color:var(--fm-gold-hi)!important}
+.st-key-fm_main_nav button{flex:1 1 0!important;min-width:0!important;padding:.42rem .12rem!important;font-size:.73rem!important;font-weight:900!important;border-radius:12px!important;border:1px solid #d7dde7!important;background:#f7f8fb!important;color:#2d476b!important;-webkit-text-fill-color:#2d476b!important}
+.st-key-fm_main_nav button,.st-key-fm_main_nav button *{color:#2d476b!important;-webkit-text-fill-color:#2d476b!important;fill:#2d476b!important;opacity:1!important}
+.st-key-fm_main_nav button p,.st-key-fm_main_nav button span,.st-key-fm_main_nav button div{color:inherit!important;-webkit-text-fill-color:inherit!important}
+.st-key-fm_main_nav button svg{fill:currentColor!important;color:currentColor!important}
+.st-key-fm_main_nav button[aria-checked="true"]{background:#10382d!important;color:#fff5d1!important;-webkit-text-fill-color:#fff5d1!important;border:2px solid #f05849!important}
+.st-key-fm_main_nav button[aria-checked="true"],.st-key-fm_main_nav button[aria-checked="true"] *{color:#fff5d1!important;-webkit-text-fill-color:#fff5d1!important;fill:#fff5d1!important}
 .st-key-live_role button,.st-key-mossa_role_filter button,.st-key-mossa_tool button,.st-key-fm_extra_tool button{background:#10382d!important;color:var(--fm-text)!important;border-color:rgba(217,184,95,.30)!important;font-weight:850!important}
 .st-key-live_role button[aria-checked="true"],.st-key-mossa_role_filter button[aria-checked="true"],.st-key-mossa_tool button[aria-checked="true"],.st-key-fm_extra_tool button[aria-checked="true"]{background:var(--fm-gold)!important;color:#062019!important}
 
@@ -1799,7 +1803,7 @@ st.markdown(
 
 with st.sidebar:
     st.header("⚙️ FantaMossa")
-    st.caption("Controlli rapidi • v3.31.1")
+    st.caption("Controlli rapidi • v3.31.2")
     st.button("☁️ SALVA ORA", width="stretch", on_click=_quick_cloud_save, key="sidebar_quick_save")
     st.button("↩️ ANNULLA ULTIMA", width="stretch", on_click=_quick_undo, key="sidebar_quick_undo")
     quick_sidebar_notice=st.session_state.pop("_quick_notice",None)
@@ -2406,7 +2410,7 @@ def render_storico():
 
 
 
-# v3.31.1 — Navigazione stabile post-asta, senza callback/fragment/Mossa.
+# v3.31.2 — Navigazione stabile post-asta, senza callback/fragment/Mossa.
 nav_options = ["🔥 Asta","👕 Rosa","👥 Rivali","••• Altro"]
 main_nav = st.segmented_control(
     "Navigazione", nav_options,
