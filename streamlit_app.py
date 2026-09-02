@@ -1,4 +1,4 @@
-# VERSIONE v4.1.3 FANTAMOSSA - TITOLARITA PARSER FIX
+# VERSIONE v4.1.4 FANTAMOSSA - TITOLARITA LEGEND REDESIGN
 # FC Jigen - file corretto per GitHub
 
 import re
@@ -3602,210 +3602,104 @@ def render_lineup_advisor():
         if not any_bench:
             st.caption("Nessun altro giocatore disponibile.")
 
-    st.caption("% senza ~ = dato rilevato dalle probabili. % con ~ = stima da gerarchia verificata. N/D compare solo quando non esiste ancora un dato sufficientemente affidabile.")
-
-
-
-def _known_probability(player, info=None):
-    pct, estimated, source = _starter_probability(player, info)
-    return pct, estimated, source
-
-
-def _lineup_avg_probability(starters):
-    vals = []
-    live_count = 0
-    estimated_count = 0
-    unknown = 0
-    for _, p, info, *_ in starters:
-        pct, estimated, source = _known_probability(p, info)
-        if pct is None:
-            unknown += 1
-            continue
-        vals.append(float(pct))
-        if estimated:
-            estimated_count += 1
-        else:
-            live_count += 1
-    avg = round(sum(vals) / len(vals)) if vals else None
-    return avg, live_count, estimated_count, unknown
-
-
-def _matchday_pitch_css():
-    st.markdown("""
+        st.markdown("""
     <style>
-    .fm-gday-grid{
-        display:grid;grid-template-columns:repeat(3,1fr);
-        gap:7px;margin:.45rem 0 .75rem
+    .fm-prob-legend{
+        display:grid;
+        grid-template-columns:repeat(3,minmax(0,1fr));
+        gap:7px;
+        margin:.7rem 0 .25rem;
     }
-    .fm-gday-card{
-        background:#0e3329;border:1px solid rgba(217,184,95,.30);
-        border-radius:15px;padding:10px
+    .fm-prob-legend-item{
+        background:linear-gradient(145deg,#12382e,#0d3027);
+        border:1px solid rgba(217,184,95,.20);
+        border-radius:13px;
+        padding:9px 8px;
+        min-width:0;
     }
-    .fm-gday-card.best{
-        border:2px solid #d9b85f;background:#123d31
+    .fm-prob-legend-top{
+        display:flex;
+        align-items:center;
+        gap:6px;
+        font-size:.66rem;
+        font-weight:950;
+        color:#fff8dc;
+        line-height:1;
     }
-    .fm-gday-title{color:#f5e2a4;font-size:1.03rem;font-weight:950}
-    .fm-gday-meta{color:#d6e0db;font-size:.68rem;line-height:1.35;margin-top:4px}
-    .fm-gday-score{color:#fff;font-size:1.22rem;font-weight:950;margin-top:5px}
-    .fm-alert-card{
-        background:#10382d;border:1px solid rgba(217,184,95,.28);
-        border-radius:14px;padding:9px 10px;margin:5px 0
+    .fm-prob-dot{
+        width:9px;
+        height:9px;
+        border-radius:50%;
+        flex:0 0 9px;
     }
-    .fm-alert-name{font-weight:950;color:#f5e2a4}
-    .fm-alert-sub{font-size:.72rem;color:#d6e0db;margin-top:2px}
-
-    .fm-pitch-header{
-        display:flex;align-items:center;justify-content:space-between;
-        gap:8px;margin:.45rem 2px .4rem;
+    .fm-prob-dot.live{background:#2da56b}
+    .fm-prob-dot.estimate{background:#d9b85f}
+    .fm-prob-dot.unknown{background:#8c9792}
+    .fm-prob-legend-text{
+        margin-top:5px;
+        color:#9fb3aa;
+        font-size:.54rem;
+        line-height:1.28;
     }
-    .fm-pitch-chip{
-        display:inline-flex;align-items:center;gap:5px;
-        padding:6px 10px;border-radius:999px;
-        background:#123a2f;border:1px solid rgba(217,184,95,.32);
-        color:#f5e2a4;font-size:.68rem;font-weight:900
+    .fm-prob-note{
+        color:#7f9389;
+        font-size:.54rem;
+        margin-top:7px;
+        text-align:center;
+        line-height:1.3;
     }
-    .fm-pitch-chip.ok{
-        background:rgba(23,109,71,.28);
-        color:#dff6e7;border-color:rgba(77,190,126,.28)
-    }
-
-    .fm-pitch-wrap{
-        margin:.35rem 0 1.1rem;
-        border:2px solid rgba(245,226,164,.72);
-        border-radius:22px;overflow:hidden;
-        box-shadow:0 10px 26px rgba(0,0,0,.20);
-        background:#176b45
-    }
-    .fm-pitch{
-        position:relative;min-height:610px;
-        padding:26px 8px 28px;
-        display:flex;flex-direction:column;justify-content:space-between;
-        background:
-            radial-gradient(circle at 50% 50%,rgba(255,255,255,.025),transparent 35%),
-            repeating-linear-gradient(0deg,#1b754c 0,#1b754c 76px,#227d53 76px,#227d53 152px)
-    }
-    .fm-pitch:before{
-        content:"";position:absolute;inset:12px;
-        border:2px solid rgba(255,255,255,.72);
-        border-radius:4px;pointer-events:none
-    }
-    .fm-pitch:after{
-        content:"";position:absolute;left:50%;top:50%;
-        width:88px;height:88px;border:2px solid rgba(255,255,255,.68);
-        border-radius:50%;transform:translate(-50%,-50%);pointer-events:none
-    }
-    .fm-halfway{
-        position:absolute;left:12px;right:12px;top:50%;
-        border-top:2px solid rgba(255,255,255,.68)
-    }
-    .fm-box-top,.fm-box-bottom{
-        position:absolute;left:26%;right:26%;height:70px;
-        border:2px solid rgba(255,255,255,.68)
-    }
-    .fm-box-top{top:12px;border-top:0}
-    .fm-box-bottom{bottom:12px;border-bottom:0}
-
-    .fm-pitch-line{
-        position:relative;z-index:3;
-        display:flex;justify-content:space-evenly;align-items:center;
-        gap:4px;width:100%;min-height:104px
-    }
-    .fm-pitch-player{
-        width:74px;text-align:center;color:#fff;
-        text-shadow:0 1px 2px rgba(0,0,0,.7)
-    }
-    .fm-shirt{
-        width:34px;height:34px;
-        display:flex;align-items:center;justify-content:center;
-        margin:0 auto 5px;border-radius:50%;
-        background:#f5e2a4;color:#0b2d24;
-        border:2px solid rgba(255,255,255,.92);
-        font-size:.83rem;box-shadow:0 3px 8px rgba(0,0,0,.26)
-    }
-    .fm-pitch-player.doubt .fm-shirt{background:#f3b64b}
-    .fm-pitch-player.out .fm-shirt{background:#e75c55}
-    .fm-pitch-player.unknown .fm-shirt{background:#d8ddd9}
-
-    .fm-pitch-name{
-        display:inline-block;max-width:100%;
-        padding:3px 6px;border-radius:8px;
-        background:rgba(5,32,24,.66);
-        border:1px solid rgba(255,255,255,.08);
-        font-size:.69rem;font-weight:950;line-height:1.05;
-        white-space:nowrap;overflow:hidden;text-overflow:ellipsis
-    }
-    .fm-pitch-prob{
-        display:inline-block;margin-top:4px;
-        padding:3px 6px;border-radius:999px;
-        font-size:.54rem;font-weight:950;
-        background:rgba(0,0,0,.30);color:#fff;
-        box-shadow:0 2px 5px rgba(0,0,0,.12)
-    }
-    .fm-pitch-prob.high{background:#176d47}
-    .fm-pitch-prob.mid{background:#9a6b10}
-    .fm-pitch-prob.low{background:#9b342f}
-    .fm-pitch-prob.nd{background:#59625d}
-    .fm-pitch-team{
-        font-size:.51rem;opacity:.84;margin-top:3px;
-        white-space:nowrap;overflow:hidden;text-overflow:ellipsis
-    }
-    .fm-pitch-legend{
-        display:flex;gap:9px;justify-content:center;flex-wrap:wrap;
-        padding:9px 10px;background:#0d3f30;
-        color:#e8eee9;font-size:.63rem
-    }
-
     @media(max-width:700px){
-        .fm-gday-grid{grid-template-columns:1fr}
-        .fm-gday-card{padding:8px 10px}
-        .fm-pitch-header{margin-top:.2rem}
-        .fm-pitch-chip{font-size:.60rem;padding:5px 8px}
-
-        .fm-pitch{
-            min-height:600px;
-            padding:24px 2px 68px; /* keep GK clear of fixed bottom nav */
+        .fm-prob-legend{
+            grid-template-columns:1fr;
+            gap:6px;
         }
-        .fm-pitch-line{
-            min-height:93px;gap:0
+        .fm-prob-legend-item{
+            display:grid;
+            grid-template-columns:85px minmax(0,1fr);
+            align-items:center;
+            gap:8px;
+            padding:8px 9px;
         }
-        .fm-pitch-player{width:61px}
-        .fm-shirt{
-            width:29px;height:29px;
-            font-size:.70rem;margin-bottom:4px
-        }
-        .fm-pitch-name{
-            font-size:.59rem;padding:3px 4px;
-            max-width:60px
-        }
-        .fm-pitch-prob{
-            font-size:.46rem;padding:2px 4px;margin-top:3px
-        }
-        .fm-pitch-team{
-            font-size:.45rem;max-width:58px;margin-left:auto;margin-right:auto
-        }
-        .fm-pitch:after{width:72px;height:72px}
-        .fm-box-top,.fm-box-bottom{height:58px}
-        .fm-pitch-legend{
-            padding-bottom:22px;font-size:.57rem
+        .fm-prob-legend-text{
+            margin-top:0;
+            font-size:.56rem;
         }
     }
     </style>
+
+    <div class="fm-prob-legend">
+      <div class="fm-prob-legend-item">
+        <div class="fm-prob-legend-top">
+          <span class="fm-prob-dot live"></span> LIVE
+        </div>
+        <div class="fm-prob-legend-text">
+          Percentuale rilevata direttamente dalle probabili.
+        </div>
+      </div>
+
+      <div class="fm-prob-legend-item">
+        <div class="fm-prob-legend-top">
+          <span class="fm-prob-dot estimate"></span> STIMA ~
+        </div>
+        <div class="fm-prob-legend-text">
+          Stima usata solo quando la gerarchia è già verificata.
+        </div>
+      </div>
+
+      <div class="fm-prob-legend-item">
+        <div class="fm-prob-legend-top">
+          <span class="fm-prob-dot unknown"></span> N/D
+        </div>
+        <div class="fm-prob-legend-text">
+          Nessun dato abbastanza affidabile: l'app non inventa.
+        </div>
+      </div>
+    </div>
+
+    <div class="fm-prob-note">
+      Le percentuali aiutano a scegliere l'XI, ma uno stato medico ufficiale ha sempre priorità.
+    </div>
     """, unsafe_allow_html=True)
-
-
-def _render_result_pitch(res):
-    starters = res["starters"]
-    by_role = {"POR": [], "DIF": [], "CEN": [], "ATT": []}
-    for item in starters:
-        by_role.setdefault(item[1].get("role"), []).append(item)
-
-    modifier_txt = "🛡️ Modificatore ON" if res.get("modifier_active") else "⚠️ Modificatore OFF"
-    header_html = (
-        '<div class="fm-pitch-header">'
-        f'<span class="fm-pitch-chip">📋 {html.escape(str(res.get("formation","")))}</span>'
-        f'<span class="fm-pitch-chip {"ok" if res.get("modifier_active") else ""}">{modifier_txt}</span>'
-        '</div>'
-    )
     pitch_html = (
         header_html +
         '<div class="fm-pitch-wrap"><div class="fm-pitch">'
