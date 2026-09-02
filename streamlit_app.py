@@ -1,4 +1,4 @@
-# VERSIONE v3.33.0 FANTAMOSSA - CENTRALE + ASTA SEPARATE
+# VERSIONE v3.34.0 FANTAMOSSA - DASHBOARD + ROSA + ASTA
 # FC Jigen - file corretto per GitHub
 
 import re
@@ -9,6 +9,8 @@ import base64
 import pandas as pd
 import json, statistics, hashlib
 import unicodedata
+import xml.etree.ElementTree as ET
+from urllib.parse import quote_plus
 
 def _norm_search(s):
     s = unicodedata.normalize("NFKD", str(s))
@@ -1826,7 +1828,7 @@ st.markdown(
 
 with st.sidebar:
     st.header("⚙️ FantaMossa")
-    st.caption("Controlli rapidi • v3.33.0")
+    st.caption("Controlli rapidi • v3.34.0")
     st.button("☁️ SALVA ORA", width="stretch", on_click=_quick_cloud_save, key="sidebar_quick_save")
     st.button("↩️ ANNULLA ULTIMA", width="stretch", on_click=_quick_undo, key="sidebar_quick_undo")
     quick_sidebar_notice=st.session_state.pop("_quick_notice",None)
@@ -2215,6 +2217,149 @@ def render_dashboard():
             width="stretch"
         )
 
+
+@st.cache_data(ttl=900, show_spinner=False)
+def fetch_player_news(player_name, team_name, limit=5):
+    """Notizie on-demand: una sola ricerca per giocatore, timeout breve anti-freeze."""
+    query = f'"{player_name}" "{team_name}" fantacalcio calcio'
+    url = "https://news.google.com/rss/search?q=" + quote_plus(query) + "&hl=it&gl=IT&ceid=IT:it"
+    try:
+        req = Request(url, headers={"User-Agent":"Mozilla/5.0 FantaMossa/3.34"})
+        with urlopen(req, timeout=4.0) as resp:
+            data = resp.read()
+        root = ET.fromstring(data)
+        out=[]
+        for item in root.findall('.//item')[:limit]:
+            title=(item.findtext('title') or '').strip()
+            link=(item.findtext('link') or '').strip()
+            pub=(item.findtext('pubDate') or '').strip()
+            if title:
+                out.append({"title":title,"link":link,"pubDate":pub})
+        return out, ""
+    except Exception as exc:
+        return [], f"{type(exc).__name__}: {exc}"
+
+
+def _title_weight(info):
+    t = str(info.get("titolarita","DA VERIFICARE")).upper()
+    if "ALTISSIMA" in t: return 26
+    if t == "ALTA" or "TITOLARISS" in str(info.get("verdict","")).upper(): return 22
+    if "MEDIO-ALTA" in t: return 15
+    if t == "MEDIA": return 8
+    if "BASSA" in t: return -8
+    return 3
+
+
+def _roster_row(player):
+    ap = all_players()
+    m = ap[(ap.Nome.astype(str)==str(player.get("name",""))) & (ap.Squadra.astype(str)==str(player.get("team","")))]
+    if m.empty:
+        m = ap[ap.Nome.astype(str)==str(player.get("name",""))]
+    return None if m.empty else m.iloc[0]
+
+
+def _lineup_score(player):
+    row = _roster_row(player)
+    fvm = float(player.get("fvm",0) or 0)
+    if row is not None:
+        info = player_intel(row)
+        slot, rank, total = player_slot_info(row)
+        rank_bonus = 0 if total <= 1 else max(0, 35 * (1 - (rank-1)/(total-1)))
+    else:
+        info = {"titolarita":"DA VERIFICARE"}
+        slot, rank, total, rank_bonus = 8, 999, 999, 0
+    state = S.setdefault("player_status", {}).get(str(player.get("name","")), "✅ Disponibile")
+    status_penalty = -10000 if state == "⛔ OUT" else (-18 if state == "⚠️ Dubbio" else 0)
+    return fvm + rank_bonus + _title_weight(info) + status_penalty, info, slot, rank, total, state
+
+
+def recommended_lineups():
+    formations = {
+        "3-4-3": (3,4,3), "3-5-2": (3,5,2), "4-3-3": (4,3,3),
+        "4-4-2": (4,4,2), "4-5-1": (4,5,1), "5-3-2": (5,3,2), "5-4-1": (5,4,1),
+    }
+    roster=[dict(x) for x in S.get("roster",[])]
+    grouped={r:[] for r in ["POR","DIF","CEN","ATT"]}
+    for p in roster:
+        score, info, slot, rank, total, state = _lineup_score(p)
+        grouped.setdefault(p.get("role"),[]).append((score,p,info,slot,rank,total,state))
+    for r in grouped:
+        grouped[r].sort(key=lambda x:x[0], reverse=True)
+    results=[]
+    for form,(nd,nc,na) in formations.items():
+        need={"POR":1,"DIF":nd,"CEN":nc,"ATT":na}
+        if any(len([x for x in grouped[r] if x[6] != "⛔ OUT"]) < n for r,n in need.items()):
+            continue
+        starters=[]; total_score=0
+        for r,n in need.items():
+            picks=[x for x in grouped[r] if x[6] != "⛔ OUT"][:n]
+            starters.extend(picks); total_score += sum(x[0] for x in picks)
+        doubts=sum(1 for x in starters if x[6]=="⚠️ Dubbio")
+        unverified=sum(1 for x in starters if "VERIFIC" not in str(x[2].get("confidence","")).upper())
+        results.append({"formation":form,"score":round(total_score,1),"starters":starters,"doubts":doubts,"unverified":unverified})
+    return sorted(results,key=lambda x:x["score"],reverse=True)[:3]
+
+
+def render_rosa_status():
+    fm_page("🩺 Stato giocatori", "Notizie on-demand, titolarità e stato operativo dei tuoi 25 giocatori.")
+    roster=[dict(x) for x in S.get("roster",[])]
+    if not roster:
+        st.info("Rosa vuota."); return
+    names=[p["name"] for p in roster]
+    pick=st.selectbox("Giocatore", names, key="rosa_status_player")
+    p=next(x for x in roster if x["name"]==pick)
+    row=_roster_row(p)
+    info=player_intel(row) if row is not None else {"titolarita":"DA VERIFICARE","confidence":"DA VERIFICARE","summary":"Dati non disponibili."}
+    score,_,slot,rank,total,state=_lineup_score(p)
+    c1,c2,c3=st.columns(3)
+    c1.metric("Slot", f"{slot}°")
+    c2.metric("Rank ruolo", f"#{rank}/{total}")
+    c3.metric("Titolarità", str(info.get("titolarita","DA VERIFICARE")))
+    st.caption(f"Affidabilità gerarchia: {info.get('confidence','DA VERIFICARE')} • {info.get('summary','')}")
+
+    status_options=["✅ Disponibile","⚠️ Dubbio","⛔ OUT"]
+    current=S.setdefault("player_status",{}).get(pick,"✅ Disponibile")
+    idx=status_options.index(current) if current in status_options else 0
+    new_state=st.segmented_control("Stato operativo", status_options, default=status_options[idx], key=f"status_{_norm_search(pick)}")
+    if new_state and new_state != current:
+        S.setdefault("player_status",{})[pick]=new_state
+        persist(); st.success("Stato salvato nel Cloud.")
+
+    st.markdown("### 📰 Ultime notizie")
+    st.caption("Caricamento solo su richiesta per evitare freeze. Le notizie aiutano il controllo, ma lo stato medico va confermato da fonti ufficiali.")
+    if st.button("🔄 Aggiorna notizie", width="stretch", key=f"news_{_norm_search(pick)}"):
+        news, err = fetch_player_news(pick, p.get("team",""), 5)
+        st.session_state["news_result"]={"player":pick,"items":news,"err":err}
+    nr=st.session_state.get("news_result",{})
+    if nr.get("player")==pick:
+        if nr.get("err"):
+            st.warning("Notizie non disponibili in questo momento.")
+        elif not nr.get("items"):
+            st.info("Nessuna notizia recente trovata.")
+        else:
+            for n in nr["items"]:
+                st.markdown(f"**{n['title']}**")
+                if n.get("pubDate"): st.caption(n["pubDate"])
+                if n.get("link"): st.link_button("Apri notizia", n["link"], width="content")
+
+
+def render_lineup_advisor():
+    fm_page("🧩 Formazione giornata", "Tre moduli consigliati usando stato operativo, titolarità, slot e valore dei tuoi giocatori.")
+    results=recommended_lineups()
+    if not results:
+        st.warning("Non ci sono abbastanza giocatori disponibili per costruire una formazione valida. Controlla gli OUT.")
+        return
+    for i,res in enumerate(results,1):
+        st.markdown(f"### {i}. {res['formation']} • indice {res['score']}")
+        if res['doubts']:
+            st.warning(f"⚠️ {res['doubts']} dubbio/i nella formazione.")
+        if res['unverified']:
+            st.caption(f"{res['unverified']} titolarità ancora da verificare.")
+        rows=[]
+        for score,p,info,slot,rank,total,state in res['starters']:
+            rows.append({"Ruolo":p['role'],"Giocatore":p['name'],"Squadra":p['team'],"Stato":state,"Titolarità":info.get('titolarita','DA VERIFICARE'),"Slot":f"{slot}°","FVM":p.get('fvm',0)})
+        st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
+
 def render_rosa():
     """Rosa separata dalla Dashboard: elenco completo e riepilogo per ruolo."""
     fm_page("👕 Rosa FC Jigen", "La squadra completa, separata dalla Dashboard centrale.")
@@ -2572,31 +2717,40 @@ def render_storico():
 
 
 
-# v3.33.0 — Due aree separate: Centrale e Asta.
+# v3.34.0 — Tre mondi principali separati: Dashboard, Rosa, Asta.
 main_area = st.segmented_control(
-    "Area principale", ["📊 Centrale", "🔥 Asta"],
-    default="📊 Centrale", key="fm_main_nav", label_visibility="collapsed"
+    "Mondo principale", ["📊 Dashboard", "👕 Rosa", "🔥 Asta"],
+    default="📊 Dashboard", key="fm_main_nav", label_visibility="collapsed"
 )
-if main_area not in ["📊 Centrale", "🔥 Asta"]: main_area = "📊 Centrale"
+if main_area not in ["📊 Dashboard", "👕 Rosa", "🔥 Asta"]:
+    main_area = "📊 Dashboard"
 
 if main_area == "🔥 Asta":
     render_asta()
-else:
-    centrale_nav = st.segmented_control(
-        "Centrale", ["📊 Dashboard", "👕 Rosa", "👥 Rivali", "••• Altro"],
-        default="📊 Dashboard", key="fm_centrale_nav", label_visibility="collapsed"
+elif main_area == "👕 Rosa":
+    rosa_nav = st.segmented_control(
+        "Rosa", ["👕 Panoramica", "🩺 Stato", "🧩 Formazione"],
+        default="👕 Panoramica", key="fm_rosa_nav", label_visibility="collapsed"
     )
-    if centrale_nav not in ["📊 Dashboard", "👕 Rosa", "👥 Rivali", "••• Altro"]: centrale_nav = "📊 Dashboard"
-    if centrale_nav == "📊 Dashboard": render_dashboard()
-    elif centrale_nav == "👕 Rosa": render_rosa()
-    elif centrale_nav == "👥 Rivali": render_rivali()
-    else:
+    if rosa_nav == "🩺 Stato": render_rosa_status()
+    elif rosa_nav == "🧩 Formazione": render_lineup_advisor()
+    else: render_rosa()
+else:
+    dash_nav = st.segmented_control(
+        "Dashboard", ["📊 Centrale", "👥 Rivali", "••• Altro"],
+        default="📊 Centrale", key="fm_dashboard_nav", label_visibility="collapsed"
+    )
+    if dash_nav == "👥 Rivali":
+        render_rivali()
+    elif dash_nav == "••• Altro":
         fm_page("＋ Altri strumenti", "Approfondimenti e gestione avanzata.")
         extra = st.segmented_control(
             "Strumento", ["📡 Radar","🎯 Piano","🎲 Scommesse","📈 Storico"],
-            default="📡 Radar", key="fm_extra_tool_v333", label_visibility="collapsed"
+            default="📡 Radar", key="fm_extra_tool_v334", label_visibility="collapsed"
         )
         if extra == "📡 Radar": render_radar()
         elif extra == "🎯 Piano": render_piano()
         elif extra == "🎲 Scommesse": render_scommesse()
         else: render_storico()
+    else:
+        render_dashboard()
