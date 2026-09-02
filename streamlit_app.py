@@ -1,4 +1,4 @@
-# VERSIONE v4.0.5 FANTAMOSSA - RIVALS MOBILE CARDS
+# VERSIONE v4.0.6 FANTAMOSSA - MOBILE UI FIX PACK
 # FC Jigen - file corretto per GitHub
 
 import re
@@ -1911,9 +1911,9 @@ html,body,[data-testid="stAppViewContainer"]{font-family:-apple-system,BlinkMacS
 .st-key-fm_main_nav button[aria-checked="true"]{background:linear-gradient(180deg,#edd27e,#d5ae4f)!important;border:0!important;box-shadow:0 7px 18px rgba(0,0,0,.22)!important}
 
 /* Secondary segmented controls */
-.st-key-fm_rosa_nav,.st-key-fm_dashboard_nav,.st-key-fm_extra_tool_v334,.st-key-lineup_formation_pick,.st-key-matchday_formation_pick_v400,.st-key-rosa_role_filter_v400{margin:.2rem 0 .6rem}
-.st-key-fm_rosa_nav button,.st-key-fm_dashboard_nav button,.st-key-fm_extra_tool_v334 button,.st-key-lineup_formation_pick button,.st-key-matchday_formation_pick_v400 button,.st-key-rosa_role_filter_v400 button{border-radius:13px!important;font-size:.71rem!important;font-weight:850!important;border:1px solid var(--app-line)!important;background:#0d3328!important;color:#f9edc9!important;min-height:40px!important}
-.st-key-fm_rosa_nav button[aria-checked="true"],.st-key-fm_dashboard_nav button[aria-checked="true"],.st-key-fm_extra_tool_v334 button[aria-checked="true"],.st-key-lineup_formation_pick button[aria-checked="true"],.st-key-matchday_formation_pick_v400 button[aria-checked="true"],.st-key-rosa_role_filter_v400 button[aria-checked="true"]{background:#e4c66f!important;color:#082219!important}
+.st-key-fm_rosa_nav,.st-key-fm_dashboard_nav,.st-key-fm_asta_nav,.st-key-fm_extra_tool_v334,.st-key-lineup_formation_pick,.st-key-matchday_formation_pick_v400,.st-key-rosa_role_filter_v400{margin:.2rem 0 .6rem}
+.st-key-fm_rosa_nav button,.st-key-fm_dashboard_nav button,.st-key-fm_asta_nav button,.st-key-fm_extra_tool_v334 button,.st-key-lineup_formation_pick button,.st-key-matchday_formation_pick_v400 button,.st-key-rosa_role_filter_v400 button{border-radius:13px!important;font-size:.71rem!important;font-weight:850!important;border:1px solid var(--app-line)!important;background:#0d3328!important;color:#f9edc9!important;min-height:40px!important}
+.st-key-fm_rosa_nav button[aria-checked="true"],.st-key-fm_dashboard_nav button[aria-checked="true"],.st-key-fm_asta_nav button[aria-checked="true"],.st-key-fm_extra_tool_v334 button[aria-checked="true"],.st-key-lineup_formation_pick button[aria-checked="true"],.st-key-matchday_formation_pick_v400 button[aria-checked="true"],.st-key-rosa_role_filter_v400 button[aria-checked="true"]{background:#e4c66f!important;color:#082219!important}
 
 /* Home */
 .app-home-hero{position:relative;overflow:hidden;background:linear-gradient(135deg,#154b39 0%,#0a3025 60%,#102a22 100%);border:1px solid rgba(255,232,165,.22);border-radius:25px;padding:19px 18px 17px;box-shadow:var(--app-shadow);margin:5px 0 10px}
@@ -3972,22 +3972,109 @@ def render_storico():
 
 st.markdown("""
 <style>
-@media(max-width:700px){
-  .st-key-fm_asta_nav [data-baseweb="button-group"]{
+/* v4.0.6 — auction subnav: mobile-native, no white fallback */
+.st-key-fm_asta_nav{
+    margin:.15rem 0 .75rem!important;
+}
+.st-key-fm_asta_nav div[role="radiogroup"]{
     display:grid!important;
-    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+    grid-template-columns:repeat(5,minmax(0,1fr))!important;
     gap:6px!important;
     width:100%!important;
-  }
-  .st-key-fm_asta_nav button{
+    background:transparent!important;
+}
+.st-key-fm_asta_nav button{
     min-width:0!important;
     width:100%!important;
-    min-height:46px!important;
-    padding:6px 5px!important;
-    font-size:.72rem!important;
-    line-height:1.05!important;
+    min-height:44px!important;
+    padding:7px 6px!important;
+    border-radius:13px!important;
+    border:1px solid rgba(217,184,95,.32)!important;
+    background:#0d3328!important;
+    color:#fff5d1!important;
+    -webkit-text-fill-color:#fff5d1!important;
+    box-shadow:none!important;
+    outline:none!important;
+    opacity:1!important;
+}
+.st-key-fm_asta_nav button *,
+.st-key-fm_asta_nav button p,
+.st-key-fm_asta_nav button span,
+.st-key-fm_asta_nav button div{
+    color:#fff5d1!important;
+    -webkit-text-fill-color:#fff5d1!important;
+    opacity:1!important;
+}
+.st-key-fm_asta_nav button[aria-checked="true"]{
+    background:linear-gradient(180deg,#edd27e,#d5ae4f)!important;
+    color:#082219!important;
+    -webkit-text-fill-color:#082219!important;
+    border:1px solid #efd982!important;
+    box-shadow:0 5px 13px rgba(0,0,0,.18)!important;
+}
+.st-key-fm_asta_nav button[aria-checked="true"] *{
+    color:#082219!important;
+    -webkit-text-fill-color:#082219!important;
+}
+.st-key-fm_asta_nav button:focus,
+.st-key-fm_asta_nav button:focus-visible{
+    outline:none!important;
+    box-shadow:none!important;
+}
+.st-key-fm_asta_nav button[aria-checked="true"]:focus,
+.st-key-fm_asta_nav button[aria-checked="true"]:focus-visible{
+    box-shadow:0 5px 13px rgba(0,0,0,.18)!important;
+}
+
+/* Generic guard: internal segmented controls never fall back to white */
+div[class*="st-key-fm_"] div[role="radiogroup"] button:not([aria-checked="true"]){
+    background-color:#0d3328!important;
+    color:#fff5d1!important;
+    -webkit-text-fill-color:#fff5d1!important;
+}
+div[class*="st-key-fm_"] div[role="radiogroup"] button:not([aria-checked="true"]) *{
+    color:#fff5d1!important;
+    -webkit-text-fill-color:#fff5d1!important;
+}
+
+@media(max-width:700px){
+  .st-key-fm_asta_nav div[role="radiogroup"]{
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+    gap:6px!important;
+  }
+  .st-key-fm_asta_nav button{
+    min-height:43px!important;
+    padding:6px 4px!important;
+    font-size:.67rem!important;
+    line-height:1.08!important;
     white-space:normal!important;
   }
+
+  /* Slightly tighter mobile content so bottom nav does not cover controls */
+  .block-container{
+    padding-bottom:7.6rem!important;
+  }
+}
+</style>
+""", unsafe_allow_html=True)
+
+
+st.markdown("""
+<style>
+/* v4.0.6 — piccoli fix globali mobile */
+div[role="radiogroup"] button:focus-visible{
+    outline:none!important;
+}
+div[role="radiogroup"] button{
+    transition:background .12s ease,border-color .12s ease,transform .08s ease!important;
+}
+div[role="radiogroup"] button:active{
+    transform:scale(.985);
+}
+@media(max-width:700px){
+    h1,h2,h3{scroll-margin-top:80px}
+    div[data-testid="stMetric"]{min-width:0!important}
+    div[data-testid="stMetricValue"]{overflow-wrap:anywhere}
 }
 </style>
 """, unsafe_allow_html=True)
