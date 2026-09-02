@@ -1,4 +1,4 @@
-# VERSIONE v4.0.3 FANTAMOSSA - CLEAN MOBILE ACTIONS
+# VERSIONE v4.0.4 FANTAMOSSA - DARK EXPANDERS
 # FC Jigen - file corretto per GitHub
 
 import re
@@ -119,6 +119,64 @@ st.markdown("""
 }
 </style>
 """, unsafe_allow_html=True)
+
+st.markdown("""
+<style>
+/* v4.0.4 — expander sempre coerenti col tema scuro */
+[data-testid="stExpander"] {
+    background: #0d3027 !important;
+    border: 1px solid rgba(217,184,95,.28) !important;
+    border-radius: 16px !important;
+    overflow: hidden !important;
+    box-shadow: 0 4px 14px rgba(0,0,0,.12) !important;
+}
+
+[data-testid="stExpander"] details {
+    background: #0d3027 !important;
+}
+
+[data-testid="stExpander"] summary {
+    background: linear-gradient(145deg,#123a2f,#0d3027) !important;
+    color: #fff8dc !important;
+    border-radius: 15px !important;
+    padding: 10px 12px !important;
+}
+
+[data-testid="stExpander"] summary:hover {
+    background: #163f34 !important;
+}
+
+[data-testid="stExpander"] summary * {
+    color: #fff8dc !important;
+    fill: #fff8dc !important;
+}
+
+[data-testid="stExpander"] [data-testid="stExpanderDetails"] {
+    background: #0b2b23 !important;
+    color: #f3f5f4 !important;
+    padding: 12px 10px 14px !important;
+    border-top: 1px solid rgba(217,184,95,.18) !important;
+}
+
+[data-testid="stExpander"] [data-testid="stExpanderDetails"] * {
+    color: inherit;
+}
+
+/* fallback per varianti DOM Streamlit */
+details[open] > summary {
+    background: linear-gradient(145deg,#123a2f,#0d3027) !important;
+    color: #fff8dc !important;
+}
+
+@media(max-width:700px){
+    [data-testid="stExpander"] summary {
+        min-height: 50px !important;
+        font-size: .86rem !important;
+    }
+}
+</style>
+""", unsafe_allow_html=True)
+
 
 
 st.markdown(f"""
