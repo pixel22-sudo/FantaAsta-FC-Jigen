@@ -1,4 +1,4 @@
-# VERSIONE v3.35.3 FANTAMOSSA - AUTO LINEUP PERCENTAGES
+# VERSIONE v3.36.0 FANTAMOSSA - MATCHDAY CENTER
 # FC Jigen - file corretto per GitHub
 
 import re
@@ -1710,7 +1710,7 @@ div.stButton>button[kind="primary"]{background:var(--fm-gold)!important;color:#0
 
 @media(max-width:700px){
  .block-container{padding:.48rem .58rem 2.6rem}.fm-head{padding:7px 8px;border-radius:15px}.fm-logo{width:38px;height:38px}.fm-brand{font-size:1rem}.fm-cloud{font-size:.63rem;padding:5px 6px}.fm-summary{gap:5px}.fm-stat{padding:7px 3px}.fm-stat-label{font-size:.56rem}.fm-stat-value{font-size:1.13rem}.fm-page{padding:11px 12px}.fm-page-title{font-size:1.34rem}.fm-guide{gap:5px}.fm-guide-card{padding:7px 4px}.fm-guide-title{font-size:.72rem}.fm-guide-sub{font-size:.58rem}.fm-player-name{font-size:1.34rem}.fm-pick-name{font-size:1.25rem}
- div.stButton>button{min-height:44px!important;padding:.34rem .38rem!important}.st-key-fm_main_nav button{font-size:.66rem!important;padding:.37rem .05rem!important;white-space:nowrap!important}div[data-testid="column"]{min-width:0!important}
+ div.stButton>button{min-height:44px!important;padding:.34rem .38rem!important}.st-key-fm_main_nav button{font-size:.62rem!important;padding:.37rem .05rem!important;white-space:nowrap!important}div[data-testid="column"]{min-width:0!important}
 }
 </style>""",unsafe_allow_html=True)
 
@@ -1831,7 +1831,7 @@ st.markdown(
 
 with st.sidebar:
     st.header("⚙️ FantaMossa")
-    st.caption("Controlli rapidi • v3.35.3")
+    st.caption("Controlli rapidi • v3.36.0")
     st.button("☁️ SALVA ORA", width="stretch", on_click=_quick_cloud_save, key="sidebar_quick_save")
     st.button("↩️ ANNULLA ULTIMA", width="stretch", on_click=_quick_undo, key="sidebar_quick_undo")
     quick_sidebar_notice=st.session_state.pop("_quick_notice",None)
@@ -2459,7 +2459,7 @@ def fetch_player_news(player_name, team_name, limit=5, max_age_days=14):
     cutoff = now - timedelta(days=max_age_days)
 
     try:
-        req = Request(url, headers={"User-Agent":"Mozilla/5.0 FantaMossa/3.35.3"})
+        req = Request(url, headers={"User-Agent":"Mozilla/5.0 FantaMossa/3.36.0"})
         with urlopen(req, timeout=2.8) as resp:
             data = resp.read()
 
@@ -2987,6 +2987,256 @@ def render_lineup_advisor():
     st.caption("% senza ~ = rilevata dalle probabili. % con ~ = stima da gerarchia verificata. N/D = dato non sufficientemente verificato.")
 
 
+
+def _known_probability(player, info=None):
+    pct, estimated, source = _starter_probability(player, info)
+    return pct, estimated, source
+
+
+def _lineup_avg_probability(starters):
+    vals = []
+    live_count = 0
+    estimated_count = 0
+    unknown = 0
+    for _, p, info, *_ in starters:
+        pct, estimated, source = _known_probability(p, info)
+        if pct is None:
+            unknown += 1
+            continue
+        vals.append(float(pct))
+        if estimated:
+            estimated_count += 1
+        else:
+            live_count += 1
+    avg = round(sum(vals) / len(vals)) if vals else None
+    return avg, live_count, estimated_count, unknown
+
+
+def _matchday_pitch_css():
+    st.markdown("""
+    <style>
+    .fm-gday-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:.45rem 0 .75rem}
+    .fm-gday-card{background:#0e3329;border:1px solid rgba(217,184,95,.30);border-radius:15px;padding:10px}
+    .fm-gday-card.best{border:2px solid #d9b85f;background:#123d31}
+    .fm-gday-title{color:#f5e2a4;font-size:1.03rem;font-weight:950}
+    .fm-gday-meta{color:#d6e0db;font-size:.68rem;line-height:1.35;margin-top:4px}
+    .fm-gday-score{color:#fff;font-size:1.22rem;font-weight:950;margin-top:5px}
+    .fm-alert-card{background:#10382d;border:1px solid rgba(217,184,95,.28);border-radius:14px;padding:9px 10px;margin:5px 0}
+    .fm-alert-name{font-weight:950;color:#f5e2a4}.fm-alert-sub{font-size:.72rem;color:#d6e0db;margin-top:2px}
+    .fm-pitch-wrap{margin:.55rem 0 .8rem;border:2px solid rgba(245,226,164,.75);border-radius:22px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.18);background:#176b45}
+    .fm-pitch{position:relative;min-height:620px;padding:22px 10px 20px;display:flex;flex-direction:column;justify-content:space-between;background:linear-gradient(rgba(255,255,255,.08),rgba(255,255,255,.08)),repeating-linear-gradient(0deg,#176b45 0,#176b45 78px,#1b744b 78px,#1b744b 156px)}
+    .fm-pitch:before{content:"";position:absolute;inset:12px;border:2px solid rgba(255,255,255,.78);border-radius:4px;pointer-events:none}
+    .fm-pitch:after{content:"";position:absolute;left:50%;top:50%;width:92px;height:92px;border:2px solid rgba(255,255,255,.78);border-radius:50%;transform:translate(-50%,-50%);pointer-events:none}
+    .fm-halfway{position:absolute;left:12px;right:12px;top:50%;border-top:2px solid rgba(255,255,255,.78)}
+    .fm-box-top,.fm-box-bottom{position:absolute;left:25%;right:25%;height:74px;border:2px solid rgba(255,255,255,.78)}
+    .fm-box-top{top:12px;border-top:0}.fm-box-bottom{bottom:12px;border-bottom:0}
+    .fm-pitch-line{position:relative;z-index:3;display:flex;justify-content:space-evenly;align-items:center;gap:4px;width:100%;min-height:108px}
+    .fm-pitch-player{width:78px;text-align:center;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.75)}
+    .fm-shirt{width:42px;height:42px;display:flex;align-items:center;justify-content:center;margin:0 auto 4px;border-radius:50%;background:#f5e2a4;color:#0b2d24;border:2px solid #fff;font-size:1.1rem;box-shadow:0 3px 8px rgba(0,0,0,.28)}
+    .fm-pitch-player.doubt .fm-shirt{background:#f3b64b}.fm-pitch-player.out .fm-shirt{background:#e75c55}.fm-pitch-player.unknown .fm-shirt{background:#d8ddd9}
+    .fm-pitch-name{font-size:.72rem;font-weight:950;line-height:1.05;white-space:normal;word-break:break-word}
+    .fm-pitch-team{font-size:.54rem;opacity:.86;margin-top:2px}
+    .fm-pitch-prob{display:inline-block;margin-top:3px;padding:2px 5px;border-radius:999px;font-size:.54rem;font-weight:950;background:rgba(0,0,0,.28);color:#fff}
+    .fm-pitch-prob.high{background:#176d47}.fm-pitch-prob.mid{background:#9a6b10}.fm-pitch-prob.low{background:#9b342f}.fm-pitch-prob.nd{background:#59625d}
+    .fm-pitch-legend{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;padding:8px 10px;background:#0d3f30;color:#e8eee9;font-size:.68rem}
+    @media(max-width:700px){
+      .fm-gday-grid{grid-template-columns:1fr}.fm-gday-card{padding:8px 10px}
+      .fm-pitch{min-height:555px;padding:18px 4px 16px}.fm-pitch-line{min-height:94px;gap:1px}
+      .fm-pitch-player{width:62px}.fm-shirt{width:35px;height:35px;font-size:.95rem}
+      .fm-pitch-name{font-size:.63rem}.fm-pitch-prob{font-size:.48rem;padding:2px 4px}.fm-pitch-team{font-size:.48rem}
+      .fm-pitch:after{width:76px;height:76px}.fm-box-top,.fm-box-bottom{height:62px}
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+
+def _render_result_pitch(res):
+    starters = res["starters"]
+    by_role = {"POR": [], "DIF": [], "CEN": [], "ATT": []}
+    for item in starters:
+        by_role.setdefault(item[1].get("role"), []).append(item)
+
+    pitch_html = (
+        '<div class="fm-pitch-wrap"><div class="fm-pitch">'
+        '<div class="fm-halfway"></div><div class="fm-box-top"></div><div class="fm-box-bottom"></div>'
+        + _render_pitch_line(by_role["ATT"], "attack")
+        + _render_pitch_line(by_role["CEN"], "midfield")
+        + _render_pitch_line(by_role["DIF"], "defence")
+        + _render_pitch_line(by_role["POR"], "goalkeeper")
+        + '</div><div class="fm-pitch-legend">'
+          '<span>🟡 Disponibile</span><span>🟠 Dubbio</span><span>⚪ Da verificare</span>'
+          '</div></div>'
+    )
+    st.markdown(pitch_html, unsafe_allow_html=True)
+
+
+def _bench_candidates_for(starters):
+    starter_names = {str(x[1].get("name", "")) for x in starters}
+    bench = {"POR": [], "DIF": [], "CEN": [], "ATT": []}
+    for p in [dict(x) for x in S.get("roster", [])]:
+        if str(p.get("name", "")) in starter_names:
+            continue
+        score, info, slot, rank, total, state = _lineup_score(p)
+        if state == "⛔ OUT":
+            continue
+        pct, estimated, source = _starter_probability(p, info)
+        bench.setdefault(str(p.get("role", "")), []).append(
+            (score, p, info, slot, state, pct, estimated)
+        )
+    for role in bench:
+        bench[role].sort(
+            key=lambda x: (
+                -1 if x[5] is None else x[5],
+                x[0]
+            ),
+            reverse=True
+        )
+    return bench
+
+
+def render_matchday_center():
+    """Match Center: schermata operativa pre-giornata, senza news e senza richieste multiple."""
+    fm_page(
+        "📅 Giornata",
+        "La schermata da aprire prima di consegnare la formazione: modulo, titolarità, modificatore e alert."
+    )
+
+    # Una sola richiesta batch, poi cache 10 minuti.
+    with st.spinner("Aggiorno le probabili della tua rosa…"):
+        err = preload_roster_lineup_live()
+
+    if not err:
+        st.session_state["lineup_last_ok"] = datetime.now().strftime("%d/%m %H:%M")
+
+    last_ok = st.session_state.get("lineup_last_ok", "N/D")
+    if err:
+        st.warning(f"⚠️ Probabili non raggiungibili ora • ultimo aggiornamento riuscito: {last_ok}")
+    else:
+        st.caption(f"✅ Probabili aggiornate • {last_ok} • cache 10 minuti")
+
+    results = recommended_lineups()
+    if not results:
+        st.error("Non riesco a costruire un XI valido con 4 difensori. Controlla subito gli indisponibili in Rosa → Stato.")
+        return
+
+    best = results[0]
+    starters = best["starters"]
+    avg_pct, live_count, est_count, unknown = _lineup_avg_probability(starters)
+
+    roster = [dict(x) for x in S.get("roster", [])]
+    auto_status = st.session_state.get("auto_player_status", {})
+    out_count = sum(1 for p in roster if auto_status.get(str(p.get("name",""))) == "⛔ OUT")
+    doubt_count = sum(1 for p in roster if auto_status.get(str(p.get("name",""))) == "⚠️ Dubbio")
+
+    # Indice preparazione: non è un voto fantacalcio, misura quanto l'XI è "verificato".
+    known_ratio = (11 - unknown) / 11
+    avg_component = (avg_pct or 0) / 100 if avg_pct is not None else 0
+    readiness = round(100 * (0.55 * known_ratio + 0.45 * avg_component))
+    readiness = max(0, min(100, readiness))
+
+    k1, k2, k3, k4 = st.columns(4)
+    k1.metric("🏟️ Modulo migliore", best["formation"])
+    k2.metric("📈 Titolarità media XI", "N/D" if avg_pct is None else f"{avg_pct}%")
+    k3.metric("🛡️ Modificatore", "ATTIVO" if best.get("modifier_active") else "NO")
+    k4.metric("✅ Preparazione", f"{readiness}/100")
+
+    # Alert rapido.
+    alerts = []
+    if best["doubts"]:
+        alerts.append(f"⚠️ {best['doubts']} dubbio/i nell'XI")
+    if unknown:
+        alerts.append(f"⚪ {unknown} titolarità N/D nell'XI")
+    if out_count:
+        alerts.append(f"⛔ {out_count} OUT in rosa")
+    if doubt_count:
+        alerts.append(f"🟠 {doubt_count} dubbi totali in rosa")
+    if not alerts:
+        st.success("✅ XI pulito: nessun alert operativo rilevato.")
+    else:
+        st.warning(" • ".join(alerts))
+
+    _matchday_pitch_css()
+
+    # Confronto 3 moduli.
+    st.markdown("### 🧠 Confronto moduli")
+    cards = []
+    for i, res in enumerate(results):
+        ap, lc, ec, un = _lineup_avg_probability(res["starters"])
+        pct_txt = "N/D" if ap is None else f"{ap}%"
+        best_cls = " best" if i == 0 else ""
+        cards.append(
+            f'<div class="fm-gday-card{best_cls}">'
+            f'<div class="fm-gday-title">{html.escape(res["formation"])}</div>'
+            f'<div class="fm-gday-score">{pct_txt} titolarità media</div>'
+            f'<div class="fm-gday-meta">Indice XI {res["score"]:.0f} • '
+            f'{res["doubts"]} dubbi • {un} N/D<br>'
+            f'🛡️ Modificatore {"attivo" if res.get("modifier_active") else "non attivo"}</div>'
+            f'</div>'
+        )
+    st.markdown('<div class="fm-gday-grid">' + "".join(cards) + '</div>', unsafe_allow_html=True)
+
+    st.markdown(f"### ⭐ XI consigliato · {best['formation']}")
+    _render_result_pitch(best)
+
+    # Giocatori dell'XI sotto soglia / non verificati + migliore alternativa dello stesso ruolo.
+    st.markdown("### 🚦 Decisioni da controllare")
+    bench = _bench_candidates_for(starters)
+    decision_rows = []
+    for score, p, info, slot, rank, total, state in starters:
+        pct, estimated, source = _starter_probability(p, info)
+        risky = state == "⚠️ Dubbio" or pct is None or (pct is not None and pct < 60)
+        if not risky:
+            continue
+
+        role = str(p.get("role", ""))
+        alternatives = bench.get(role, [])
+        alt = alternatives[0] if alternatives else None
+
+        if pct is None:
+            pct_txt = "N/D"
+        else:
+            pct_txt = ("~" if estimated else "") + f"{pct}%"
+
+        alt_txt = "Nessuna alternativa disponibile"
+        if alt:
+            _, ap, ainfo, aslot, astate, apct, aest = alt
+            apct_txt = "N/D" if apct is None else (("~" if aest else "") + f"{apct}%")
+            alt_txt = f"Alternativa: {ap.get('name','')} · tit. {apct_txt} · {aslot}° slot"
+
+        decision_rows.append((p.get("name",""), role, pct_txt, state, alt_txt))
+
+    if not decision_rows:
+        st.success("✅ Nessun titolare sotto la soglia di attenzione.")
+    else:
+        for name, role, pct_txt, state, alt_txt in decision_rows:
+            st.markdown(
+                f'<div class="fm-alert-card"><div class="fm-alert-name">{html.escape(str(name))} · {html.escape(role)}</div>'
+                f'<div class="fm-alert-sub">Titolarità {html.escape(pct_txt)} · {html.escape(str(state))}<br>'
+                f'{html.escape(alt_txt)}</div></div>',
+                unsafe_allow_html=True
+            )
+
+    # Panchina operativa: ordine consigliato, separato per reparto.
+    st.markdown("### 🪑 Panchina consigliata")
+    st.caption("Ordine interno al reparto: prima probabilità di voto/titolarità, poi qualità del profilo.")
+    role_labels = {"POR":"🧤 POR", "DIF":"🛡️ DIF", "CEN":"⚙️ CEN", "ATT":"🎯 ATT"}
+    cols = st.columns(4)
+    for col, role in zip(cols, ["POR","DIF","CEN","ATT"]):
+        with col:
+            st.markdown(f"**{role_labels[role]}**")
+            players = bench.get(role, [])
+            if not players:
+                st.caption("—")
+                continue
+            for idx, (_, p, info, slot, state, pct, estimated) in enumerate(players, start=1):
+                pct_txt = "N/D" if pct is None else (("~" if estimated else "") + f"{pct}%")
+                st.markdown(f"{idx}. **{p.get('name','')}**  \n{pct_txt} · {slot}° slot")
+
+    st.caption(
+        "Indice Preparazione = copertura dei dati di titolarità + probabilità media dell'XI. "
+        "Non è un punteggio ufficiale del Fantacalcio."
+    )
+
 def render_rosa():
     """Rosa separata dalla Dashboard: elenco completo e riepilogo per ruolo."""
     fm_page("👕 Rosa FC Jigen", "La squadra completa, separata dalla Dashboard centrale.")
@@ -3344,16 +3594,18 @@ def render_storico():
 
 
 
-# v3.35.3 — Tre mondi principali separati: Dashboard, Rosa, Asta.
+# v3.36.0 — Quattro mondi principali: Dashboard, Rosa, Giornata, Asta.
 main_area = st.segmented_control(
-    "Mondo principale", ["📊 Dashboard", "👕 Rosa", "🔥 Asta"],
+    "Mondo principale", ["📊 Dashboard", "👕 Rosa", "📅 Giornata", "🔥 Asta"],
     default="📊 Dashboard", key="fm_main_nav", label_visibility="collapsed"
 )
-if main_area not in ["📊 Dashboard", "👕 Rosa", "🔥 Asta"]:
+if main_area not in ["📊 Dashboard", "👕 Rosa", "📅 Giornata", "🔥 Asta"]:
     main_area = "📊 Dashboard"
 
 if main_area == "🔥 Asta":
     render_asta()
+elif main_area == "📅 Giornata":
+    render_matchday_center()
 elif main_area == "👕 Rosa":
     rosa_nav = st.segmented_control(
         "Rosa", ["👕 Panoramica", "🩺 Stato", "🧩 Formazione"],
